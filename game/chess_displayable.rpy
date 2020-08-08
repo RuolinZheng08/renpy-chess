@@ -34,30 +34,18 @@ init python:
             super(HoverDisplayable, self).__init__()
             self.hover_coord = None
             self.hover_img = Solid(COLOR_HOVER, xsize=LOC_LEN, ysize=LOC_LEN)
-            self.hover_render = None
-
         def render(self, width, height, st, at):
             render = renpy.Render(width, height)
-            if not self.hover_render:
-                self.hover_render = renpy.render(self.hover_img, width, height, st, at)
             if self.hover_coord:
-                render.blit(self.hover_render, self.hover_coord)
+                render.place(self.hover_img, 
+                    x=self.hover_coord[0], y=self.hover_coord[1], 
+                    width=LOC_LEN, height=LOC_LEN)
             return render
 
         def event(self, ev, x, y, st):
             if X_MIN < x < X_MAX and ev.type == pygame.MOUSEMOTION:
                 self.hover_coord = round_coord(x, y)
                 renpy.redraw(self, 0)
-
-    class LocDisplayable(renpy.Displayable):
-        def __init__(self, piece_render=None, piece_coord=None):
-            self.piece_render = piece_render
-
-        def render(self, width, height, st, at):
-            render = renpy.Render(width, height)
-            if self.piece_render:
-                render.blit(self.piece_render, self.piece_coord)
-            return render
 
     class ChessDisplayable(renpy.Displayable):
 
@@ -68,8 +56,6 @@ init python:
 
             # displayables and renders
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
-            self.selected_render = None
-
             self.piece_imgs = {}
             self.piece_renders = {}
 
@@ -79,10 +65,10 @@ init python:
 
         def render(self, width, height, st, at):
             render = renpy.Render(width, height)
-            if not self.selected_render:
-                self.selected_render = renpy.render(self.selected_img, width, height, st, at)
             if self.src_coord:
-                render.blit(self.selected_render, self.src_coord)
+                render.place(self.selected_img, 
+                    x=self.src_coord[0], y=self.src_coord[1], 
+                    width=LOC_LEN, height=LOC_LEN)
 
             # test
             piece = Image('images/chesspieces/king_white.png')
@@ -97,7 +83,7 @@ init python:
                 # first click, check if loc is selectable
                 if self.src_coord is None:
                     self.src_coord = round_coord(x, y)
-                    src_square = coord_to_square(*self.src_coord)
+                    src_square = coord_to_square(self.src_coord)
                     # redraw if there is a piece of the current player's color on square
                     piece = self.board.piece_at(src_square)
                     if piece and piece.color == self.board.turn:
@@ -134,7 +120,8 @@ init python:
             return chess.Move(from_square, to_square, promotion=None)
 
     # helper functions
-    def coord_to_square(x, y):
+    def coord_to_square(coord):
+        x, y = coord
         assert X_MIN <= x <= X_MAX and Y_MIN <= y <= Y_MAX
         file_index = (x - X_OFFSET) / LOC_LEN
         rank_index = 7 - (y / LOC_LEN)
