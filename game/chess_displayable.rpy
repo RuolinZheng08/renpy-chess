@@ -21,7 +21,7 @@ init python:
 
     COLOR_HOVER = '#00ff0050'
     COLOR_SELECTED = '#0a82ff88'
-    COLOR_LEGAL = '#45b8ff88' # legal move
+    COLOR_LEGAL_DST = '#45b8ff88' # destination of a legal move
     COLOR_WHITE = '#fff'
 
     TEXT_SIZE = 26
@@ -64,13 +64,13 @@ init python:
 
             # displayables
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
+            self.legal_dst_img = Solid(COLOR_LEGAL_DST, xsize=LOC_LEN, ysize=LOC_LEN)
             self.piece_imgs = self.load_piece_imgs()
-            self.whoseturn_txt = Text('')
-            self.debug_txt = ''
 
             # coordinate tuples for blitting selected loc and generating moves
             self.src_coord = None
-            self.dst_coord = None
+            # a list of legal destinations for the currently selected piece
+            self.legal_dsts = []
 
         def render(self, width, height, st, at):
             render = renpy.Render(width, height)
@@ -90,9 +90,16 @@ init python:
                     width=LOC_LEN, height=LOC_LEN)
 
             # render a list legal moves for the selected piece on loc
+            for square in self.legal_dsts:
+                square_coord = indices_to_coord(chess.square_file(square),
+                                                chess.square_rank(square))
+                render.place(self.legal_dst_img, x=square_coord[0], y=square_coord[1])
 
-            self.update_whoseturn_txt()
-            render.place(self.whoseturn_txt, 
+            # update text
+            whoseturn_txt = Text('Whose turn: %s' %
+                'White' if self.board.turn else 'Black', 
+                color=COLOR_WHITE, size=TEXT_SIZE)
+            render.place(whoseturn_txt, 
                 x=TEXT_WHOSETURN_COORD[0], y=TEXT_WHOSETURN_COORD[1])
 
             return render
@@ -106,23 +113,22 @@ init python:
                     # redraw if there is a piece of the current player's color on square
                     piece = self.board.piece_at(src_square)
                     if piece and piece.color == self.board.turn:
-                        # draws legal moves
+                        # save legal destinations to be highlighted when redrawing render
+                        self.legal_dsts = [move.to_square for move
+                        in self.board.legal_moves if move.from_square == src_square]
                         renpy.redraw(self, 0)
                     else: # deselect
                         self.src_coord = None
 
                 # second click, check if should deselect
                 else:
-                    self.dst_coord = round_coord(x, y)
-                    move = self.construct_move(self.src_coord, self.dst_coord)
+                    dst_coord = round_coord(x, y)
+                    move = self.construct_move(self.src_coord, dst_coord)
                     if move in self.board.legal_moves:
                         self.board.push(move)
                         renpy.redraw(self, 0)
-                    self.src_coord, self.dst_coord = None, None
-                    # self.moves_list_piece = []
-
-        def visit(self):
-            return []
+                    self.src_coord = None
+                    self.legal_dsts = []
 
         # helpers
         def load_piece_imgs(self):
@@ -145,11 +151,6 @@ init python:
             # TODO: promotion
             move = chess.Move(from_square, to_square, promotion=None)
             return move
-
-        def update_whoseturn_txt(self):
-            turn_txt = 'White' if self.board.turn else 'Black'
-            self.whoseturn_txt = Text("Whose turn: %s" % turn_txt, 
-                color=COLOR_WHITE, size=TEXT_SIZE)
 
     # helper functions
     def coord_to_square(coord):
