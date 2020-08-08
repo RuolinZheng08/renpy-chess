@@ -65,7 +65,8 @@ init python:
             # displayables
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
             self.piece_imgs = self.load_piece_imgs()
-            self.whoseturn_txt = None
+            self.whoseturn_txt = Text('')
+            self.debug_txt = ''
 
             # coordinate tuples for blitting selected loc and generating moves
             self.src_coord = None
@@ -112,11 +113,11 @@ init python:
 
                 # second click, check if should deselect
                 else:
-                    assert False
                     self.dst_coord = round_coord(x, y)
                     move = self.construct_move(self.src_coord, self.dst_coord)
-                    self.board.push(move)
-
+                    if move in self.board.legal_moves:
+                        self.board.push(move)
+                        renpy.redraw(self, 0)
                     self.src_coord, self.dst_coord = None, None
                     # self.moves_list_piece = []
 
@@ -142,7 +143,8 @@ init python:
             from_square = coord_to_square(src_coord)
             to_square = coord_to_square(dst_coord)
             # TODO: promotion
-            return chess.Move(from_square, to_square, promotion=None)
+            move = chess.Move(from_square, to_square, promotion=None)
+            return move
 
         def update_whoseturn_txt(self):
             turn_txt = 'White' if self.board.turn else 'Black'
@@ -155,7 +157,8 @@ init python:
         assert X_MIN <= x <= X_MAX and Y_MIN <= y <= Y_MAX
         file_idx = (x - X_LEFT_OFFSET) / LOC_LEN
         rank_idx = INDEX_MAX - (y / LOC_LEN)
-        return chess.square(file_idx, rank_idx)
+        square = chess.square(file_idx, rank_idx)
+        return square
 
     def round_coord(x, y):
         '''
