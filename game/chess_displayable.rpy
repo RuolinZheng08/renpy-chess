@@ -22,6 +22,11 @@ init python:
     COLOR_HOVER = '#00ff0050'
     COLOR_SELECTED = '#0a82ff88'
     COLOR_LEGAL = '#45b8ff88' # legal move
+    COLOR_WHITE = '#fff'
+
+    TEXT_SIZE = 26
+    TEXT_WHOSETURN_COORD = (1020, 10)
+    TEXT_MOVE_COORD = (1020, 40)
 
     # use tuples for immutability
     PIECE_TYPES = ('p', 'r', 'b', 'n', 'k', 'q')
@@ -60,6 +65,7 @@ init python:
             # displayables
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
             self.piece_imgs = self.load_piece_imgs()
+            self.whoseturn_txt = None
 
             # coordinate tuples for blitting selected loc and generating moves
             self.src_coord = None
@@ -81,7 +87,12 @@ init python:
                 render.place(self.selected_img, 
                     x=self.src_coord[0], y=self.src_coord[1], 
                     width=LOC_LEN, height=LOC_LEN)
+
             # render a list legal moves for the selected piece on loc
+
+            self.update_whoseturn_txt()
+            render.place(self.whoseturn_txt, 
+                x=TEXT_WHOSETURN_COORD[0], y=TEXT_WHOSETURN_COORD[1])
 
             return render
 
@@ -101,6 +112,7 @@ init python:
 
                 # second click, check if should deselect
                 else:
+                    assert False
                     self.dst_coord = round_coord(x, y)
                     move = self.construct_move(self.src_coord, self.dst_coord)
                     self.board.push(move)
@@ -132,6 +144,11 @@ init python:
             # TODO: promotion
             return chess.Move(from_square, to_square, promotion=None)
 
+        def update_whoseturn_txt(self):
+            turn_txt = 'White' if self.board.turn else 'Black'
+            self.whoseturn_txt = Text("Whose turn: %s" % turn_txt, 
+                color=COLOR_WHITE, size=TEXT_SIZE)
+
     # helper functions
     def coord_to_square(coord):
         x, y = coord
@@ -152,5 +169,5 @@ init python:
     def indices_to_coord(file_idx, rank_idx):
         assert INDEX_MIN <= file_idx <= INDEX_MAX and INDEX_MIN <= file_idx <= INDEX_MAX
         x = LOC_LEN * file_idx + X_LEFT_OFFSET
-        y = LOC_LEN * rank_idx
+        y = LOC_LEN * (INDEX_MAX - rank_idx)
         return (x, y)

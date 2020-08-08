@@ -5,10 +5,12 @@
 
 define e = Character("Eileen")
 screen chess:
+    default chess_displayble = ChessDisplayable()
+    default hover_displayble = HoverDisplayable()
     # TODO: programmatically define the chess board background as an Image obj
     add "bg chessboard" # the bg doesn't need to be redraw every time
-    add ChessDisplayable()
-    add HoverDisplayable() # hover loc over chesspieces
+    add chess_displayble
+    add hover_displayble # hover loc over chesspieces
     modal True
 
 # The game starts here.
