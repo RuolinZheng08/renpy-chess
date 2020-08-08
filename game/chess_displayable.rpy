@@ -52,7 +52,6 @@ init python:
     class LocDisplayable(renpy.Displayable):
         def __init__(self, piece_render=None, piece_coord=None):
             self.piece_render = piece_render
-            self.piece_coord = piece_coord
 
         def render(self, width, height, st, at):
             render = renpy.Render(width, height)
@@ -87,13 +86,14 @@ init python:
 
             # test
             piece = Image('images/chesspieces/king_white.png')
-            pr = renpy.render(piece, width, height, st, at)
-            render.blit(pr, (X_OFFSET, 0))
+            render.place(piece, x=X_OFFSET, y=0, width=LOC_LEN, height=LOC_LEN)
+
+            render.place(Image('images/chesspieces/rook_black.png'), x=X_OFFSET, y=0, width=LOC_LEN, height=LOC_LEN)
 
             return render
 
         def event(self, ev, x, y, st):
-            if ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            if X_MIN < x < X_MAX and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                 # first click, check if loc is selectable
                 if self.src_coord is None:
                     self.src_coord = round_coord(x, y)
