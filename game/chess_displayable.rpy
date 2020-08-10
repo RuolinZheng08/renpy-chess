@@ -32,6 +32,21 @@ define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
 
 # END DEF
 
+# BEGIN SCREEN
+
+screen select_promotion_screen:
+    hbox xalign 0.05 ypos 50:
+        python:
+            rook_path = CHESSPIECES_PATH + 'r_white.png'
+            bishop_path = CHESSPIECES_PATH + 'b_white.png'
+            knight_path = CHESSPIECES_PATH + 'n_white.png'
+            queen_path = CHESSPIECES_PATH + 'q_white.png'
+        imagebutton idle rook_path action Notify(_("You clicked the button."))
+        # imagebutton bishop_path action Notify(_("You clicked the button."))
+        # imagebutton knight_path action Notify(_("You clicked the button."))
+        # imagebutton queen_path action Notify(_("You clicked the button."))
+    modal True
+
 screen chess:
     default chess_displayble = ChessDisplayable(fen=fen)
     default hover_displayble = HoverDisplayable()
@@ -39,9 +54,12 @@ screen chess:
     add "bg chessboard" # the bg doesn't need to be redraw every time
     add chess_displayble
     add hover_displayble # hover loc over chesspieces
-    modal True
+    # modal True
     if chess_displayble.winner:
         timer 6.0 action Return(chess_displayble.winner)
+    # use select_promotion_screen
+
+# END SCREEN
 
 init python:
 
@@ -81,6 +99,8 @@ init python:
         def __init__(self, fen=chess.STARTING_FEN):
             super(ChessDisplayable, self).__init__()
 
+            if not fen:
+                fen = chess.STARTING_FEN
             self.board = chess.Board(fen=fen)
 
             # displayables
@@ -157,7 +177,7 @@ init python:
 
                     # check if is promotion
                     promotion = None
-                    if self.is_promoting(src_square):
+                    if self.has_promoting_piece(src_square):
                         # UI for selecting promotion
                         promotion = chess.ROOK
 
@@ -208,7 +228,7 @@ init python:
 
             return piece_imgs
 
-        def is_promoting(self, square):
+        def has_promoting_piece(self, square):
             # check if the square contains a promoting piece
             # i.e. a pawn on the second to last row, of the current player color
             piece = self.board.piece_at(square)
