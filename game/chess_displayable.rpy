@@ -11,7 +11,7 @@ screen chess:
 
 init python:
 
-    # use UCI for move notations
+    # use UCI for move notations and FEN for board and move history
     # cursor and coord may be used interchangably
 
     # https://python-chess.readthedocs.io/en/v0.23.10/
@@ -32,7 +32,7 @@ init python:
 
     COLOR_HOVER = '#00ff0050'
     COLOR_SELECTED = '#0a82ff88'
-    COLOR_LEGAL_DST = '#45b8ff88' # destination of a legal move
+    COLOR_LEGAL_DST = '#45c8ff50' # destination of a legal move
     COLOR_WHITE = '#fff'
 
     TEXT_SIZE = 26
@@ -134,6 +134,8 @@ init python:
                         # save legal destinations to be highlighted when redrawing render
                         self.legal_dsts = [move.to_square for move
                         in self.board.legal_moves if move.from_square == src_square]
+                        print([move for move
+                        in self.board.legal_moves if move.from_square == src_square])
                         renpy.redraw(self, 0)
                     else: # deselect
                         self.src_coord = None
@@ -142,6 +144,7 @@ init python:
                 else:
                     dst_coord = round_coord(x, y)
                     move = self.construct_move(self.src_coord, dst_coord)
+                    print('about to move', move, move in self.board.legal_moves)
                     if move in self.board.legal_moves:
                         renpy.sound.play('audio/move.wav', channel=0)
                         self.board.push(move)
