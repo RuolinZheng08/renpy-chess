@@ -1,3 +1,14 @@
+screen chess:
+    default chess_displayble = ChessDisplayable()
+    default hover_displayble = HoverDisplayable()
+    # TODO: programmatically define the chess board background as an Image obj
+    add "bg chessboard" # the bg doesn't need to be redraw every time
+    add chess_displayble
+    add hover_displayble # hover loc over chesspieces
+    modal True
+    if chess_displayble.winner:
+        timer 6.0 action Return(chess_displayble.winner)
+
 init python:
 
     # use UCI for move notations
@@ -26,7 +37,7 @@ init python:
 
     TEXT_SIZE = 26
     TEXT_WHOSETURN_COORD = (1020, 10)
-    TEXT_MOVE_COORD = (1020, 40)
+    TEXT_STATUS_COORD = (1020, 50)
 
     # use tuples for immutability
     PIECE_TYPES = ('p', 'r', 'b', 'n', 'k', 'q')
@@ -66,11 +77,14 @@ init python:
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
             self.legal_dst_img = Solid(COLOR_LEGAL_DST, xsize=LOC_LEN, ysize=LOC_LEN)
             self.piece_imgs = self.load_piece_imgs()
+            self.status_txt = None
 
             # coordinate tuples for blitting selected loc and generating moves
             self.src_coord = None
             # a list of legal destinations for the currently selected piece
             self.legal_dsts = []
+            # return once a winner has been determined
+            self.winner = None
 
         def render(self, width, height, st, at):
             render = renpy.Render(width, height)
@@ -97,10 +111,14 @@ init python:
 
             # update text
             whoseturn_txt = Text('Whose turn: %s' %
-                'White' if self.board.turn else 'Black', 
+                ('White' if self.board.turn else 'Black'), 
                 color=COLOR_WHITE, size=TEXT_SIZE)
             render.place(whoseturn_txt, 
                 x=TEXT_WHOSETURN_COORD[0], y=TEXT_WHOSETURN_COORD[1])
+
+            if self.status_txt:
+                render.place(self.status_txt, 
+                    x=TEXT_STATUS_COORD[0], y=TEXT_STATUS_COORD[1])
 
             return render
 
@@ -125,8 +143,32 @@ init python:
                     dst_coord = round_coord(x, y)
                     move = self.construct_move(self.src_coord, dst_coord)
                     if move in self.board.legal_moves:
+                        renpy.sound.play('audio/move.wav', channel=0)
                         self.board.push(move)
+                        # check if is checkmate, in check, or stalemate
+                        # need is_checkmate first b/c is_check implies is_checkmate
+                        if self.board.is_checkmate():
+                            self.status_txt = Text('Checkmate', 
+                                color=COLOR_WHITE, size=TEXT_SIZE)
+                            renpy.sound.play('audio/checkmate.wav', channel=1)
+                            # after a move, if it's white's turn, that means black has
+                            # just moved and put white into checkmate, thus winner is black
+                            winner = 'black' if self.board.turn else 'white'
+                            renpy.notify('Checkmate! The winner is %s' % winner)
+                            self.winner = winner
+                        elif self.board.is_check():
+                            self.status_txt = Text('In Check', 
+                                color=COLOR_WHITE, size=TEXT_SIZE)
+                        elif self.board.is_stalemate():
+                            self.status_txt = Text('Stalemate', 
+                                color=COLOR_WHITE, size=TEXT_SIZE)
+                            renpy.notify('Stalemate')
+                            self.winner = 'draw'
+                        else:
+                            self.status_txt = None
+
                         renpy.redraw(self, 0)
+                        
                     self.src_coord = None
                     self.legal_dsts = []
 
