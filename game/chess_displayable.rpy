@@ -32,24 +32,34 @@ define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
 
 # END DEF
 
+# BEGIN DEFAULT
+
+# default fen = None
+default fen = 'rnbq1bnr/pp1pPppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2'
+default PROMOTION = None
+default chess_displayble = ChessDisplayable(fen=fen)
+default hover_displayble = HoverDisplayable()
+
+# END DEFAULT
+
 # BEGIN SCREEN
 
 screen select_promotion_screen:
-    hbox xalign 0.05 ypos 50:
+    text "Select promotion piece type" xpos 25 ypos 45 color COLOR_WHITE size 16
+    vbox xalign 0.08 ypos 80:
         python:
+            from chess import ROOK, BISHOP, KNIGHT, QUEEN
             rook_path = CHESSPIECES_PATH + 'r_white.png'
             bishop_path = CHESSPIECES_PATH + 'b_white.png'
             knight_path = CHESSPIECES_PATH + 'n_white.png'
             queen_path = CHESSPIECES_PATH + 'q_white.png'
-        imagebutton idle rook_path action Notify(_("You clicked the button."))
-        # imagebutton bishop_path action Notify(_("You clicked the button."))
-        # imagebutton knight_path action Notify(_("You clicked the button."))
-        # imagebutton queen_path action Notify(_("You clicked the button."))
-    modal True
+        imagebutton idle rook_path action SetVariable('PROMOTION', ROOK)
+        imagebutton idle bishop_path action SetVariable('PROMOTION', BISHOP)
+        imagebutton idle knight_path action SetVariable('PROMOTION', KNIGHT)
+        imagebutton idle queen_path action SetVariable('PROMOTION', QUEEN)
+    # modal True
 
 screen chess:
-    default chess_displayble = ChessDisplayable(fen=fen)
-    default hover_displayble = HoverDisplayable()
     # TODO: programmatically define the chess board background as an Image obj
     add "bg chessboard" # the bg doesn't need to be redraw every time
     add chess_displayble
@@ -57,7 +67,7 @@ screen chess:
     # modal True
     if chess_displayble.winner:
         timer 6.0 action Return(chess_displayble.winner)
-    # use select_promotion_screen
+    use select_promotion_screen
 
 # END SCREEN
 
@@ -179,7 +189,8 @@ init python:
                     promotion = None
                     if self.has_promoting_piece(src_square):
                         # UI for selecting promotion
-                        promotion = chess.ROOK
+                        promotion = PROMOTION
+                        print('promo', PROMOTION)
 
                     # TODO: promotion
                     # move construction
