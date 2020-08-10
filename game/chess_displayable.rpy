@@ -1,3 +1,37 @@
+# BEGIN DEF
+
+define X_MIN = 280
+define X_MAX = 1000
+define Y_MIN = 0
+define Y_MAX = 720
+
+define X_LEFT_OFFSET = 280 # the horizontal offset to the left of the chessboard UI
+# use loc to mean UI square and distinguish from logical square
+define LOC_LEN = 90 # length of one side of a loc
+
+# both file and rank index from 0 to 7
+define INDEX_MIN = 0
+define INDEX_MAX = 7
+
+define COLOR_HOVER = '#00ff0050'
+define COLOR_SELECTED = '#0a82ff88'
+define COLOR_LEGAL_DST = '#45c8ff50' # destination of a legal move
+define COLOR_WHITE = '#fff'
+
+define TEXT_SIZE = 26
+define TEXT_WHOSETURN_COORD = (1020, 10)
+define TEXT_STATUS_COORD = (1020, 50)
+
+# use tuples for immutability
+define PIECE_TYPES = ('p', 'r', 'b', 'n', 'k', 'q')
+
+define CHESSPIECES_PATH = 'images/chesspieces/'
+
+define PROMOTION_RANK_WHITE = 6 # INDEX_MAX - 1
+define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
+
+# END DEF
+
 screen chess:
     default chess_displayble = ChessDisplayable(fen=fen)
     default hover_displayble = HoverDisplayable()
@@ -17,42 +51,16 @@ init python:
     # https://python-chess.readthedocs.io/en/v0.23.10/
     import chess
     import pygame
-
-    X_MIN = 280
-    X_MAX = 1000
-    Y_MIN = 0
-    Y_MAX = 720
-
-    X_LEFT_OFFSET = 280 # the horizontal offset to the left of the chessboard UI
-    # use loc to mean UI square and distinguish from logical square
-    LOC_LEN = 90 # length of one side of a loc
-
-    # both file and rank index from 0 to 7
-    INDEX_MIN, INDEX_MAX = 0, 7
-
-    COLOR_HOVER = '#00ff0050'
-    COLOR_SELECTED = '#0a82ff88'
-    COLOR_LEGAL_DST = '#45c8ff50' # destination of a legal move
-    COLOR_WHITE = '#fff'
-
-    TEXT_SIZE = 26
-    TEXT_WHOSETURN_COORD = (1020, 10)
-    TEXT_STATUS_COORD = (1020, 50)
-
-    # use tuples for immutability
-    PIECE_TYPES = ('p', 'r', 'b', 'n', 'k', 'q')
-
-    CHESSPIECES_PATH = 'images/chesspieces/'
     
     class HoverDisplayable(renpy.Displayable):
         """
         Highlights the hovered loc in green
         """
-
         def __init__(self):
             super(HoverDisplayable, self).__init__()
             self.hover_coord = None
             self.hover_img = Solid(COLOR_HOVER, xsize=LOC_LEN, ysize=LOC_LEN)
+
         def render(self, width, height, st, at):
             render = renpy.Render(width, height)
             if self.hover_coord:
@@ -64,10 +72,12 @@ init python:
         def event(self, ev, x, y, st):
             if X_MIN < x < X_MAX and ev.type == pygame.MOUSEMOTION:
                 self.hover_coord = round_coord(x, y)
-                renpy.redraw(self, 0)
+                renpy.redraw(self, 0)                
 
     class ChessDisplayable(renpy.Displayable):
-        """The main displayable for the chess minigame"""
+        """
+        The main displayable for the chess minigame
+        """
         def __init__(self, fen=chess.STARTING_FEN):
             super(ChessDisplayable, self).__init__()
 
@@ -124,6 +134,7 @@ init python:
 
         def event(self, ev, x, y, st):
             if X_MIN < x < X_MAX and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+
                 # first click, check if loc is selectable
                 if self.src_coord is None:
                     self.src_coord = round_coord(x, y)
@@ -146,9 +157,7 @@ init python:
 
                     # check if is promotion
                     promotion = None
-                    piece = self.board.piece_at(src_square)
-                    if piece and piece.color == self.board.turn and \
-                    piece.piece_type == chess.PAWN:
+                    if self.is_promoting(src_square):
                         # UI for selecting promotion
                         promotion = chess.ROOK
 
@@ -198,6 +207,20 @@ init python:
                 piece_imgs[black_piece] = Image(black_path)
 
             return piece_imgs
+
+        def is_promoting(self, square):
+            # check if the square contains a promoting piece
+            # i.e. a pawn on the second to last row, of the current player color
+            piece = self.board.piece_at(square)
+            ret = (piece and piece.color == self.board.turn and
+                piece.piece_type == chess.PAWN)
+            if not ret:
+                return False
+            rank = chess.square_rank(square)
+            if piece.color == chess.WHITE:
+                return rank == PROMOTION_RANK_WHITE
+            else:
+                return rank == PROMOTION_RANK_BLACK
 
     # helper functions
     def coord_to_square(coord):
