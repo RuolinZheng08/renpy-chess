@@ -134,8 +134,6 @@ init python:
                         # save legal destinations to be highlighted when redrawing render
                         self.legal_dsts = [move.to_square for move
                         in self.board.legal_moves if move.from_square == src_square]
-                        print([move for move
-                        in self.board.legal_moves if move.from_square == src_square])
                         renpy.redraw(self, 0)
                     else: # deselect
                         self.src_coord = None
@@ -143,8 +141,20 @@ init python:
                 # second click, check if should deselect
                 else:
                     dst_coord = round_coord(x, y)
-                    move = self.construct_move(self.src_coord, dst_coord)
-                    print('about to move', move, move in self.board.legal_moves)
+                    dst_square = coord_to_square(dst_coord)
+                    src_square = coord_to_square(self.src_coord)
+
+                    # check if is promotion
+                    promotion = None
+                    piece = self.board.piece_at(src_square)
+                    if piece and piece.color == self.board.turn and \
+                    piece.piece_type == chess.PAWN:
+                        # UI for selecting promotion
+                        promotion = chess.ROOK
+
+                    # TODO: promotion
+                    # move construction
+                    move = chess.Move(src_square, dst_square, promotion=promotion)
                     if move in self.board.legal_moves:
                         renpy.sound.play('audio/move.wav', channel=0)
                         self.board.push(move)
@@ -188,14 +198,6 @@ init python:
                 piece_imgs[black_piece] = Image(black_path)
 
             return piece_imgs
-
-        def construct_move(self, src_coord, dst_coord):
-            assert src_coord and dst_coord
-            from_square = coord_to_square(src_coord)
-            to_square = coord_to_square(dst_coord)
-            # TODO: promotion
-            move = chess.Move(from_square, to_square, promotion=None)
-            return move
 
     # helper functions
     def coord_to_square(coord):
