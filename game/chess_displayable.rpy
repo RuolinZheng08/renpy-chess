@@ -1,5 +1,5 @@
 screen chess:
-    default chess_displayble = ChessDisplayable()
+    default chess_displayble = ChessDisplayable(fen=fen)
     default hover_displayble = HoverDisplayable()
     # TODO: programmatically define the chess board background as an Image obj
     add "bg chessboard" # the bg doesn't need to be redraw every time
@@ -67,11 +67,11 @@ init python:
                 renpy.redraw(self, 0)
 
     class ChessDisplayable(renpy.Displayable):
-
-        def __init__(self):
+        """The main displayable for the chess minigame"""
+        def __init__(self, fen=chess.STARTING_FEN):
             super(ChessDisplayable, self).__init__()
 
-            self.board = chess.Board()
+            self.board = chess.Board(fen=fen)
 
             # displayables
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
@@ -168,7 +168,7 @@ init python:
                             self.status_txt = None
 
                         renpy.redraw(self, 0)
-                        
+
                     self.src_coord = None
                     self.legal_dsts = []
 
