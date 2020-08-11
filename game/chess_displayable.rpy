@@ -22,8 +22,8 @@ define COLOR_LEGAL_DST = '#45c8ff50' # destination of a legal move
 define COLOR_WHITE = '#fff'
 
 define TEXT_SIZE = 26
-define TEXT_WHOSETURN_COORD = (1020, 10)
-define TEXT_STATUS_COORD = (1020, 50)
+define TEXT_WHOSETURN_COORD = (1020, 20)
+define TEXT_STATUS_COORD = (1020, 60)
 
 # use tuples for immutability
 define PIECE_TYPES = ('p', 'r', 'b', 'n', 'k', 'q')
@@ -33,18 +33,22 @@ define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
 
 # file paths
 define CHESSPIECES_PATH = 'images/chesspieces/'
+
 define AUDIO_MOVE = 'audio/move.wav'
 define AUDIO_CAPTURE = 'audio/capture.wav'
+define AUDIO_PROMOTION = 'audio/promotion.wav'
 define AUDIO_CHECK = 'audio/check.wav'
 define AUDIO_CHECKMATE = 'audio/checkmate.wav'
 define AUDIO_STALEMATE = 'audio/stalemate.wav'
+
+define STOCKFISH = 'bin/stockfish-11-64'
 
 # END DEF
 
 # BEGIN DEFAULT
 
-default fen = None
-# default fen = 'rnbq1bnr/pp1pPppp/8/8/4P3/8/PpPP1PPP/R1BQKBNR w KQkq c6 0 2'
+# default fen = None
+default fen = 'rnbqb1nr/pp1pPppp/8/8/4P3/8/PpPP1PPP/R1BQKBNR w KQkq c6 0 2'
 default chess_displayble = ChessDisplayable(fen=fen)
 
 # END DEFAULT
@@ -139,7 +143,7 @@ init python:
             self.legal_dsts = []
             # return once a winner has been determined
             self.winner = None
-
+            # promotion piece type will be set by the buttons on select_promotion_screen
             self.promotion = None
 
         def render(self, width, height, st, at):
@@ -196,6 +200,7 @@ init python:
                         renpy.redraw(self, 0)
                     else: # deselect
                         self.src_coord = None
+                    self.promotion = None
 
                 # second click, check if should deselect
                 else:
@@ -203,20 +208,21 @@ init python:
                     dst_square = coord_to_square(dst_coord)
                     src_square = coord_to_square(self.src_coord)
 
-                    # check if is promotion
-                    promotion = None
-                    if self.has_promoting_piece(src_square):
-                        # TODO: show/hide UI for selecting promotion
-                        pass
-
                     # move construction
                     move = chess.Move(src_square, dst_square, promotion=self.promotion)
-                    if move in self.board.legal_moves:
+                    if self.has_promoting_piece(src_square) and not move.promotion:
+                        # TODO: show/hide UI for selecting promotion
+                        renpy.notify('Please select a piece type to promote to')
+                        pass
 
-                        if self.board.is_capture(move):
-                            renpy.sound.play(AUDIO_CAPTURE)
+                    if move in self.board.legal_moves:
+                        if move.promotion:
+                            renpy.sound.play(AUDIO_PROMOTION)
                         else:
-                            renpy.sound.play(AUDIO_MOVE)
+                            if self.board.is_capture(move):
+                                renpy.sound.play(AUDIO_CAPTURE)
+                            else:
+                                renpy.sound.play(AUDIO_MOVE)
 
                         self.board.push(move)
 
@@ -247,7 +253,6 @@ init python:
                         renpy.redraw(self, 0)
 
                     self.src_coord = None
-                    self.promotion = None
                     self.legal_dsts = []
 
         # helpers
