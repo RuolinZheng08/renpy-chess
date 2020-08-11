@@ -43,6 +43,10 @@ define AUDIO_STALEMATE = 'audio/stalemate.wav'
 
 define STOCKFISH = 'bin/stockfish-11-64'
 
+# stockfish params
+define MAX_MOVETIME = 3000 # max think time in millisec
+define MAX_DEPTH = 20
+
 # END DEF
 
 # BEGIN DEFAULT
@@ -92,10 +96,11 @@ screen chess:
 init python:
 
     # use UCI for move notations and FEN for board and move history
-    # cursor and coord may be used interchangably
+    # terms like cursor and coord, Stockfish and AI may be used interchangably
 
-    # https://python-chess.readthedocs.io/en/v0.23.10/
+    # https://python-chess.readthedocs.io/en/v0.23.11/
     import chess
+    import chess.uci
     import pygame
     
     class HoverDisplayable(renpy.Displayable):
@@ -123,13 +128,26 @@ init python:
     class ChessDisplayable(renpy.Displayable):
         """
         The main displayable for the chess minigame
+        If player_color is None, use Player vs. Player mode
+        Else, use Player vs. Stockfish mode
+        player_color: None, chess.WHITE, chess.BLACK
         """
-        def __init__(self, fen=chess.STARTING_FEN):
+        def __init__(self, fen=chess.STARTING_FEN, player_color=None, movetime=2000, depth=10):
             super(ChessDisplayable, self).__init__()
 
             if not fen:
                 fen = chess.STARTING_FEN
             self.board = chess.Board(fen=fen)
+
+            self.player_color = None
+            if player_color is not None:
+                self.player_color = player_color
+                self.stockfish = chess.uci.popen_engine(STOCKFISH)
+                self.stockfish.position(self.board)
+                self.stockfish_movetime = movetime if movetime <= MAX_MOVETIME else MAX_MOVETIME
+                self.stockfish_depth = depth if depth <= MAX_DEPTH else MAX_DEPTH
+            else:
+                self.stockfish = None
 
             # displayables
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
@@ -186,6 +204,13 @@ init python:
             return render
 
         def event(self, ev, x, y, st):
+            # skip GUI interaction for AI's turn in Player vs. AI mode
+            if self.stockfish and self.board.turn != self.player_color:
+                move = engine.go(movetime=self.stockfish_movetime, depth=self.stockfish_depth).bestmove
+                self.play_move_audio(move)
+                renpy.redraw(self, 0)
+                return
+
             if X_MIN < x < X_MAX and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                 # first click, check if loc is selectable
                 if self.src_coord is None:
@@ -216,14 +241,7 @@ init python:
                         pass
 
                     if move in self.board.legal_moves:
-                        if move.promotion:
-                            renpy.sound.play(AUDIO_PROMOTION)
-                        else:
-                            if self.board.is_capture(move):
-                                renpy.sound.play(AUDIO_CAPTURE)
-                            else:
-                                renpy.sound.play(AUDIO_MOVE)
-
+                        self.play_move_audio(move)
                         self.board.push(move)
 
                         # check if is checkmate, in check, or stalemate
@@ -282,6 +300,15 @@ init python:
                 return rank == PROMOTION_RANK_WHITE
             else:
                 return rank == PROMOTION_RANK_BLACK
+
+        def play_move_audio(move):
+            if move.promotion:
+                renpy.sound.play(AUDIO_PROMOTION)
+            else:
+                if self.board.is_capture(move):
+                    renpy.sound.play(AUDIO_CAPTURE)
+                else:
+                    renpy.sound.play(AUDIO_MOVE)
 
     # helper functions
     def coord_to_square(coord):
