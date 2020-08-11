@@ -35,10 +35,8 @@ define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
 # BEGIN DEFAULT
 
 # default fen = None
-default fen = 'rnbq1bnr/pp1pPppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2'
-default PROMOTION = None
+default fen = 'rnbq1bnr/pp1pPppp/8/8/4P3/8/PpPP1PPP/R1BQKBNR w KQkq c6 0 2'
 default chess_displayble = ChessDisplayable(fen=fen)
-default hover_displayble = HoverDisplayable()
 
 # END DEFAULT
 
@@ -53,13 +51,14 @@ screen select_promotion_screen:
             bishop_path = CHESSPIECES_PATH + 'b_white.png'
             knight_path = CHESSPIECES_PATH + 'n_white.png'
             queen_path = CHESSPIECES_PATH + 'q_white.png'
-        imagebutton idle rook_path action SetVariable('PROMOTION', ROOK)
-        imagebutton idle bishop_path action SetVariable('PROMOTION', BISHOP)
-        imagebutton idle knight_path action SetVariable('PROMOTION', KNIGHT)
-        imagebutton idle queen_path action SetVariable('PROMOTION', QUEEN)
+        imagebutton idle rook_path action SetVariable('chess_displayble.promotion', ROOK)
+        imagebutton idle bishop_path action SetVariable('chess_displayble.promotion', BISHOP)
+        imagebutton idle knight_path action SetVariable('chess_displayble.promotion', KNIGHT)
+        imagebutton idle queen_path action SetVariable('chess_displayble.promotion', QUEEN)
     # modal True
 
 screen chess:
+    default hover_displayble = HoverDisplayable()
     # TODO: programmatically define the chess board background as an Image obj
     add "bg chessboard" # the bg doesn't need to be redraw every time
     add chess_displayble
@@ -126,6 +125,8 @@ init python:
             # return once a winner has been determined
             self.winner = None
 
+            self.promotion = None
+
         def render(self, width, height, st, at):
             render = renpy.Render(width, height)
             # render pieces on board
@@ -164,7 +165,6 @@ init python:
 
         def event(self, ev, x, y, st):
             if X_MIN < x < X_MAX and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-
                 # first click, check if loc is selectable
                 if self.src_coord is None:
                     self.src_coord = round_coord(x, y)
@@ -188,13 +188,11 @@ init python:
                     # check if is promotion
                     promotion = None
                     if self.has_promoting_piece(src_square):
-                        # UI for selecting promotion
-                        promotion = PROMOTION
-                        print('promo', PROMOTION)
+                        # TODO: show/hide UI for selecting promotion
+                        pass
 
-                    # TODO: promotion
                     # move construction
-                    move = chess.Move(src_square, dst_square, promotion=promotion)
+                    move = chess.Move(src_square, dst_square, promotion=self.promotion)
                     if move in self.board.legal_moves:
                         renpy.sound.play('audio/move.wav', channel=0)
                         self.board.push(move)
@@ -223,6 +221,7 @@ init python:
                         renpy.redraw(self, 0)
 
                     self.src_coord = None
+                    self.promotion = None
                     self.legal_dsts = []
 
         # helpers
