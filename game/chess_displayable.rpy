@@ -25,17 +25,23 @@ define TEXT_STATUS_COORD = (1020, 50)
 # use tuples for immutability
 define PIECE_TYPES = ('p', 'r', 'b', 'n', 'k', 'q')
 
-define CHESSPIECES_PATH = 'images/chesspieces/'
-
 define PROMOTION_RANK_WHITE = 6 # INDEX_MAX - 1
 define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
+
+# file paths
+define CHESSPIECES_PATH = 'images/chesspieces/'
+define AUDIO_MOVE = 'audio/move.wav'
+define AUDIO_CAPTURE = 'audio/capture.wav'
+define AUDIO_CHECK = 'audio/check.wav'
+define AUDIO_CHECKMATE = 'audio/checkmate.wav'
+define AUDIO_STALEMATE = 'audio/stalemate.wav'
 
 # END DEF
 
 # BEGIN DEFAULT
 
-# default fen = None
-default fen = 'rnbq1bnr/pp1pPppp/8/8/4P3/8/PpPP1PPP/R1BQKBNR w KQkq c6 0 2'
+default fen = None
+# default fen = 'rnbq1bnr/pp1pPppp/8/8/4P3/8/PpPP1PPP/R1BQKBNR w KQkq c6 0 2'
 default chess_displayble = ChessDisplayable(fen=fen)
 
 # END DEFAULT
@@ -194,14 +200,20 @@ init python:
                     # move construction
                     move = chess.Move(src_square, dst_square, promotion=self.promotion)
                     if move in self.board.legal_moves:
-                        renpy.sound.play('audio/move.wav', channel=0)
+
+                        if self.board.is_capture(move):
+                            renpy.sound.play(AUDIO_CAPTURE)
+                        else:
+                            renpy.sound.play(AUDIO_MOVE)
+
                         self.board.push(move)
+
                         # check if is checkmate, in check, or stalemate
                         # need is_checkmate first b/c is_check implies is_checkmate
                         if self.board.is_checkmate():
                             self.status_txt = Text('Checkmate', 
                                 color=COLOR_WHITE, size=TEXT_SIZE)
-                            renpy.sound.play('audio/checkmate.wav', channel=1)
+                            renpy.sound.play(AUDIO_CHECKMATE)
                             # after a move, if it's white's turn, that means black has
                             # just moved and put white into checkmate, thus winner is black
                             winner = 'black' if self.board.turn else 'white'
@@ -210,9 +222,11 @@ init python:
                         elif self.board.is_check():
                             self.status_txt = Text('In Check', 
                                 color=COLOR_WHITE, size=TEXT_SIZE)
+                            renpy.sound.play(AUDIO_CHECK)
                         elif self.board.is_stalemate():
                             self.status_txt = Text('Stalemate', 
                                 color=COLOR_WHITE, size=TEXT_SIZE)
+                            renpy.sound.play(AUDIO_STALEMATE)
                             renpy.notify('Stalemate')
                             self.winner = 'draw'
                         else:
