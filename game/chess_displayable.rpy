@@ -6,6 +6,9 @@ define Y_MIN = 0
 define Y_MAX = 720
 
 define X_LEFT_OFFSET = 280 # the horizontal offset to the left of the chessboard UI
+
+define PIECE_COORD_OFFSET = 5 # XXX: tweak to center piece in loc
+
 # use loc to mean UI square and distinguish from logical square
 define LOC_LEN = 90 # length of one side of a loc
 
@@ -25,30 +28,51 @@ define TEXT_STATUS_COORD = (1020, 50)
 # use tuples for immutability
 define PIECE_TYPES = ('p', 'r', 'b', 'n', 'k', 'q')
 
-define CHESSPIECES_PATH = 'images/chesspieces/'
-
 define PROMOTION_RANK_WHITE = 6 # INDEX_MAX - 1
 define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
 
+# file paths
+define CHESSPIECES_PATH = 'images/chesspieces/'
+define AUDIO_MOVE = 'audio/move.wav'
+define AUDIO_CAPTURE = 'audio/capture.wav'
+define AUDIO_CHECK = 'audio/check.wav'
+define AUDIO_CHECKMATE = 'audio/checkmate.wav'
+define AUDIO_STALEMATE = 'audio/stalemate.wav'
+
 # END DEF
+
+# BEGIN DEFAULT
+
+default fen = None
+# default fen = 'rnbq1bnr/pp1pPppp/8/8/4P3/8/PpPP1PPP/R1BQKBNR w KQkq c6 0 2'
+default chess_displayble = ChessDisplayable(fen=fen)
+
+# END DEFAULT
+
+# BEGIN STYLE # TODO: modify this
+
+style promotion_piece is button
+style promotion_piece_text is text:
+    size 45
+    hover_color "#00FFFF"             # Cyan
+    outlines [ (0, "#0000FF", 1, 1) ] # Blue
+    color "#FF0000"                   # Red
+
+# END STYLE
 
 # BEGIN SCREEN
 
 screen select_promotion_screen:
-    hbox xalign 0.05 ypos 50:
-        python:
-            rook_path = CHESSPIECES_PATH + 'r_white.png'
-            bishop_path = CHESSPIECES_PATH + 'b_white.png'
-            knight_path = CHESSPIECES_PATH + 'n_white.png'
-            queen_path = CHESSPIECES_PATH + 'q_white.png'
-        imagebutton idle rook_path action Notify(_("You clicked the button."))
-        # imagebutton bishop_path action Notify(_("You clicked the button."))
-        # imagebutton knight_path action Notify(_("You clicked the button."))
-        # imagebutton queen_path action Notify(_("You clicked the button."))
-    modal True
+    text "Select promotion piece type" xpos 25 ypos 45 color COLOR_WHITE size 16
+    vbox xalign 0.09 ypos 80:
+        $ from chess import ROOK, BISHOP, KNIGHT, QUEEN
+        textbutton "♜" action SetVariable('chess_displayble.promotion', ROOK) style "promotion_piece"
+        textbutton "♝" action SetVariable('chess_displayble.promotion', BISHOP) style "promotion_piece"
+        textbutton "♞" action SetVariable('chess_displayble.promotion', KNIGHT) style "promotion_piece"
+        textbutton "♛" action SetVariable('chess_displayble.promotion', QUEEN) style "promotion_piece"
+    # modal True
 
 screen chess:
-    default chess_displayble = ChessDisplayable(fen=fen)
     default hover_displayble = HoverDisplayable()
     # TODO: programmatically define the chess board background as an Image obj
     add "bg chessboard" # the bg doesn't need to be redraw every time
@@ -57,7 +81,7 @@ screen chess:
     # modal True
     if chess_displayble.winner:
         timer 6.0 action Return(chess_displayble.winner)
-    # use select_promotion_screen
+    use select_promotion_screen
 
 # END SCREEN
 
@@ -116,6 +140,8 @@ init python:
             # return once a winner has been determined
             self.winner = None
 
+            self.promotion = None
+
         def render(self, width, height, st, at):
             render = renpy.Render(width, height)
             # render pieces on board
@@ -125,7 +151,10 @@ init python:
                     piece_img = self.piece_imgs[piece.symbol()]
                     piece_coord = indices_to_coord(chess.square_file(square),
                                                     chess.square_rank(square))
-                    render.place(piece_img, x=piece_coord[0], y=piece_coord[1])
+                    # XXX: use PIECE_COORD_OFFSET to force-center piece in loc
+                    render.place(piece_img, 
+                        x=piece_coord[0] - PIECE_COORD_OFFSET, 
+                        y=piece_coord[1] - PIECE_COORD_OFFSET)
 
             # render selected loc
             if self.src_coord:
@@ -154,7 +183,6 @@ init python:
 
         def event(self, ev, x, y, st):
             if X_MIN < x < X_MAX and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-
                 # first click, check if loc is selectable
                 if self.src_coord is None:
                     self.src_coord = round_coord(x, y)
@@ -178,21 +206,26 @@ init python:
                     # check if is promotion
                     promotion = None
                     if self.has_promoting_piece(src_square):
-                        # UI for selecting promotion
-                        promotion = chess.ROOK
+                        # TODO: show/hide UI for selecting promotion
+                        pass
 
-                    # TODO: promotion
                     # move construction
-                    move = chess.Move(src_square, dst_square, promotion=promotion)
+                    move = chess.Move(src_square, dst_square, promotion=self.promotion)
                     if move in self.board.legal_moves:
-                        renpy.sound.play('audio/move.wav', channel=0)
+
+                        if self.board.is_capture(move):
+                            renpy.sound.play(AUDIO_CAPTURE)
+                        else:
+                            renpy.sound.play(AUDIO_MOVE)
+
                         self.board.push(move)
+
                         # check if is checkmate, in check, or stalemate
                         # need is_checkmate first b/c is_check implies is_checkmate
                         if self.board.is_checkmate():
                             self.status_txt = Text('Checkmate', 
                                 color=COLOR_WHITE, size=TEXT_SIZE)
-                            renpy.sound.play('audio/checkmate.wav', channel=1)
+                            renpy.sound.play(AUDIO_CHECKMATE)
                             # after a move, if it's white's turn, that means black has
                             # just moved and put white into checkmate, thus winner is black
                             winner = 'black' if self.board.turn else 'white'
@@ -201,9 +234,11 @@ init python:
                         elif self.board.is_check():
                             self.status_txt = Text('In Check', 
                                 color=COLOR_WHITE, size=TEXT_SIZE)
+                            renpy.sound.play(AUDIO_CHECK)
                         elif self.board.is_stalemate():
                             self.status_txt = Text('Stalemate', 
                                 color=COLOR_WHITE, size=TEXT_SIZE)
+                            renpy.sound.play(AUDIO_STALEMATE)
                             renpy.notify('Stalemate')
                             self.winner = 'draw'
                         else:
@@ -212,6 +247,7 @@ init python:
                         renpy.redraw(self, 0)
 
                     self.src_coord = None
+                    self.promotion = None
                     self.legal_dsts = []
 
         # helpers
@@ -221,8 +257,8 @@ init python:
 
             for piece in PIECE_TYPES:
                 white_piece, black_piece = piece.upper(), piece
-                white_path = CHESSPIECES_PATH + white_piece + '_white.png'
-                black_path = CHESSPIECES_PATH + black_piece + '_black.png'
+                white_path = CHESSPIECES_PATH + 'w' + white_piece + '.png'
+                black_path = CHESSPIECES_PATH + 'b' + black_piece + '.png'
                 piece_imgs[white_piece] = Image(white_path)
                 piece_imgs[black_piece] = Image(black_path)
 

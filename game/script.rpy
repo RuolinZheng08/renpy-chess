@@ -14,8 +14,6 @@ label start:
     window hide
     $ quick_menu = False
 
-    # $ fen = 'rnbq1bnr/pp1pPppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq c6 0 2'
-    $ fen = None
     call screen chess
 
     $ quick_menu = True
