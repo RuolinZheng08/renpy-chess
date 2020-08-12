@@ -51,8 +51,10 @@ define MAX_DEPTH = 20
 
 # BEGIN DEFAULT
 
+$ import chess
+default fen = chess.STARTING_FEN
 # default fen = None
-default fen = 'rnbqb1nr/pp1pPppp/8/8/4P3/8/PpPP1PPP/R1BQKBNR w KQkq c6 0 2'
+# default fen = 'rnbqb1nr/pp1pPppp/8/8/4P3/8/PpPP1PPP/R1BQKBNR w KQkq c6 0 2'
 default chess_displayble = ChessDisplayable(fen=fen)
 
 # END DEFAULT
@@ -82,6 +84,8 @@ screen select_promotion_screen:
 
 screen chess:
     default hover_displayble = HoverDisplayable()
+    default chess_displayble = ChessDisplayable(fen=fen, 
+        player_color=player_color, movetime=movetime, depth=depth)
     # TODO: programmatically define the chess board background as an Image obj
     add "bg chessboard" # the bg doesn't need to be redraw every time
     add chess_displayble
@@ -102,6 +106,7 @@ init python:
     import chess
     import chess.uci
     import pygame
+    import os
     
     class HoverDisplayable(renpy.Displayable):
         """
@@ -142,7 +147,8 @@ init python:
             self.player_color = None
             if player_color is not None:
                 self.player_color = player_color
-                self.stockfish = chess.uci.popen_engine(STOCKFISH)
+                stockfish_path = os.path.abspath(os.path.join(config.basedir, 'game', STOCKFISH))
+                self.stockfish = chess.uci.popen_engine(stockfish_path)
                 self.stockfish.position(self.board)
                 self.stockfish_movetime = movetime if movetime <= MAX_MOVETIME else MAX_MOVETIME
                 self.stockfish_depth = depth if depth <= MAX_DEPTH else MAX_DEPTH
@@ -206,8 +212,14 @@ init python:
         def event(self, ev, x, y, st):
             # skip GUI interaction for AI's turn in Player vs. AI mode
             if self.stockfish and self.board.turn != self.player_color:
-                move = engine.go(movetime=self.stockfish_movetime, depth=self.stockfish_depth).bestmove
+                self.stockfish.position(self.board)
+                move = self.stockfish.go(movetime=self.stockfish_movetime, 
+                    depth=self.stockfish_depth)
+                # print('move', move, move in self.board.legal_moves)
+                move = move.bestmove
                 self.play_move_audio(move)
+                self.board.push(move)
+                print(self.board)
                 renpy.redraw(self, 0)
                 return
 
@@ -301,7 +313,7 @@ init python:
             else:
                 return rank == PROMOTION_RANK_BLACK
 
-        def play_move_audio(move):
+        def play_move_audio(self, move):
             if move.promotion:
                 renpy.sound.play(AUDIO_PROMOTION)
             else:
