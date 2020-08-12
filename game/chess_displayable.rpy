@@ -215,11 +215,10 @@ init python:
                 self.stockfish.position(self.board)
                 move = self.stockfish.go(movetime=self.stockfish_movetime, 
                     depth=self.stockfish_depth)
-                # print('move', move, move in self.board.legal_moves)
                 move = move.bestmove
                 self.play_move_audio(move)
                 self.board.push(move)
-                print(self.board)
+                self.check_game_status()
                 renpy.redraw(self, 0)
                 return
 
@@ -255,31 +254,7 @@ init python:
                     if move in self.board.legal_moves:
                         self.play_move_audio(move)
                         self.board.push(move)
-
-                        # check if is checkmate, in check, or stalemate
-                        # need is_checkmate first b/c is_check implies is_checkmate
-                        if self.board.is_checkmate():
-                            self.status_txt = Text('Checkmate', 
-                                color=COLOR_WHITE, size=TEXT_SIZE)
-                            renpy.sound.play(AUDIO_CHECKMATE)
-                            # after a move, if it's white's turn, that means black has
-                            # just moved and put white into checkmate, thus winner is black
-                            winner = 'black' if self.board.turn else 'white'
-                            renpy.notify('Checkmate! The winner is %s' % winner)
-                            self.winner = winner
-                        elif self.board.is_check():
-                            self.status_txt = Text('In Check', 
-                                color=COLOR_WHITE, size=TEXT_SIZE)
-                            renpy.sound.play(AUDIO_CHECK)
-                        elif self.board.is_stalemate():
-                            self.status_txt = Text('Stalemate', 
-                                color=COLOR_WHITE, size=TEXT_SIZE)
-                            renpy.sound.play(AUDIO_STALEMATE)
-                            renpy.notify('Stalemate')
-                            self.winner = 'draw'
-                        else:
-                            self.status_txt = None
-
+                        self.check_game_status()
                         renpy.redraw(self, 0)
 
                     self.src_coord = None
@@ -321,6 +296,39 @@ init python:
                     renpy.sound.play(AUDIO_CAPTURE)
                 else:
                     renpy.sound.play(AUDIO_MOVE)
+
+        def check_game_status(self):
+            """
+            Check if is checkmate, in check, or stalemate
+            and update status text display accordingly
+            """
+            # need is_checkmate first b/c is_check implies is_checkmate
+            if self.board.is_checkmate():
+                self.status_txt = Text('Checkmate', 
+                    color=COLOR_WHITE, size=TEXT_SIZE)
+                renpy.sound.play(AUDIO_CHECKMATE)
+                # after a move, if it's white's turn, that means black has
+                # just moved and put white into checkmate, thus winner is black
+                winner = 'black' if self.board.turn else 'white'
+                renpy.notify('Checkmate! The winner is %s' % winner)
+                self.winner = winner
+                raise renpy.IgnoreEvent()
+
+            elif self.board.is_check():
+                self.status_txt = Text('In Check', 
+                    color=COLOR_WHITE, size=TEXT_SIZE)
+                renpy.sound.play(AUDIO_CHECK)
+
+            elif self.board.is_stalemate():
+                self.status_txt = Text('Stalemate', 
+                    color=COLOR_WHITE, size=TEXT_SIZE)
+                renpy.sound.play(AUDIO_STALEMATE)
+                renpy.notify('Stalemate')
+                self.winner = 'draw'
+                raise renpy.IgnoreEvent()
+                
+            else:
+                self.status_txt = None
 
     # helper functions
     def coord_to_square(coord):
