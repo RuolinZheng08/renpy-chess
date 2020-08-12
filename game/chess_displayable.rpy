@@ -51,10 +51,7 @@ define MAX_DEPTH = 20
 
 # BEGIN DEFAULT
 
-$ import chess
 default fen = chess.STARTING_FEN
-# default fen = None
-# default fen = 'rnbqb1nr/pp1pPppp/8/8/4P3/8/PpPP1PPP/R1BQKBNR w KQkq c6 0 2'
 default chess_displayble = ChessDisplayable(fen=fen)
 
 # END DEFAULT
@@ -75,11 +72,10 @@ style promotion_piece_text is text:
 screen select_promotion_screen:
     text "Select promotion piece type" xpos 25 ypos 45 color COLOR_WHITE size 16
     vbox xalign 0.09 ypos 80:
-        $ from chess import ROOK, BISHOP, KNIGHT, QUEEN
-        textbutton "♜" action SetVariable('chess_displayble.promotion', ROOK) style "promotion_piece"
-        textbutton "♝" action SetVariable('chess_displayble.promotion', BISHOP) style "promotion_piece"
-        textbutton "♞" action SetVariable('chess_displayble.promotion', KNIGHT) style "promotion_piece"
-        textbutton "♛" action SetVariable('chess_displayble.promotion', QUEEN) style "promotion_piece"
+        textbutton "♜" action SetVariable('chess_displayble.promotion', chess.ROOK) style "promotion_piece"
+        textbutton "♝" action SetVariable('chess_displayble.promotion', chess.BISHOP) style "promotion_piece"
+        textbutton "♞" action SetVariable('chess_displayble.promotion', chess.KNIGHT) style "promotion_piece"
+        textbutton "♛" action SetVariable('chess_displayble.promotion', chess.QUEEN) style "promotion_piece"
     # modal True
 
 screen chess:
@@ -140,8 +136,6 @@ init python:
         def __init__(self, fen=chess.STARTING_FEN, player_color=None, movetime=2000, depth=10):
             super(ChessDisplayable, self).__init__()
 
-            if not fen:
-                fen = chess.STARTING_FEN
             self.board = chess.Board(fen=fen)
 
             self.player_color = None
@@ -326,7 +320,7 @@ init python:
                 renpy.notify('Stalemate')
                 self.winner = 'draw'
                 raise renpy.IgnoreEvent()
-                
+
             else:
                 self.status_txt = None
 

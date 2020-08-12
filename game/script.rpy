@@ -9,7 +9,6 @@ define e = Character("Eileen")
 
 label start:
     python:
-        import chess
         player_color = None # None for Player vs. Player
         movetime = None
         depth = None
