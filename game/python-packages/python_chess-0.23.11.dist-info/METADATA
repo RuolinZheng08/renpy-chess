@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: python-chess
-Version: 0.23.10
+Version: 0.23.11
 Summary: A pure Python chess library with move generation and validation, Polyglot opening book probing, PGN reading and writing, Gaviota tablebase probing, Syzygy tablebase probing and XBoard/UCI engine communication.
 Home-page: https://github.com/niklasf/python-chess
 Author: Niklas Fiekas
@@ -35,7 +35,7 @@ Requires-Dist: spur ; extra == 'test'
 python-chess: a pure Python chess library
 =========================================
 
-.. image:: https://travis-ci.org/niklasf/python-chess.svg?branch=v0.23.10
+.. image:: https://travis-ci.org/niklasf/python-chess.svg?branch=v0.23.11
     :target: https://travis-ci.org/niklasf/python-chess
 
 .. image:: https://coveralls.io/repos/github/niklasf/python-chess/badge.svg?branch=master
@@ -44,8 +44,8 @@ python-chess: a pure Python chess library
 .. image:: https://badge.fury.io/py/python-chess.svg
     :target: https://pypi.python.org/pypi/python-chess
 
-.. image:: https://readthedocs.org/projects/python-chess/badge/?version=v0.23.10
-    :target: https://python-chess.readthedocs.io/en/v0.23.10/
+.. image:: https://readthedocs.org/projects/python-chess/badge/?version=v0.23.11
+    :target: https://python-chess.readthedocs.io/en/v0.23.11/
 
 Introduction
 ------------
@@ -86,17 +86,17 @@ python-chess:
     >>> board
     Board('r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4')
 
-`Documentation <https://python-chess.readthedocs.io/en/v0.23.10/>`__
+`Documentation <https://python-chess.readthedocs.io/en/v0.23.11/>`__
 --------------------------------------------------------------------
 
-* `Core <https://python-chess.readthedocs.io/en/v0.23.10/core.html>`_
-* `PGN parsing and writing <https://python-chess.readthedocs.io/en/v0.23.10/pgn.html>`_
-* `Polyglot opening book reading <https://python-chess.readthedocs.io/en/v0.23.10/polyglot.html>`_
-* `Gaviota endgame tablebase probing <https://python-chess.readthedocs.io/en/v0.23.10/gaviota.html>`_
-* `Syzygy endgame tablebase probing <https://python-chess.readthedocs.io/en/v0.23.10/syzygy.html>`_
-* `UCI engine communication <https://python-chess.readthedocs.io/en/v0.23.10/uci.html>`_
-* `Variants <https://python-chess.readthedocs.io/en/v0.23.10/variant.html>`_
-* `Changelog <https://python-chess.readthedocs.io/en/v0.23.10/changelog.html>`_
+* `Core <https://python-chess.readthedocs.io/en/v0.23.11/core.html>`_
+* `PGN parsing and writing <https://python-chess.readthedocs.io/en/v0.23.11/pgn.html>`_
+* `Polyglot opening book reading <https://python-chess.readthedocs.io/en/v0.23.11/polyglot.html>`_
+* `Gaviota endgame tablebase probing <https://python-chess.readthedocs.io/en/v0.23.11/gaviota.html>`_
+* `Syzygy endgame tablebase probing <https://python-chess.readthedocs.io/en/v0.23.11/syzygy.html>`_
+* `UCI engine communication <https://python-chess.readthedocs.io/en/v0.23.11/uci.html>`_
+* `Variants <https://python-chess.readthedocs.io/en/v0.23.11/variant.html>`_
+* `Changelog <https://python-chess.readthedocs.io/en/v0.23.11/changelog.html>`_
 
 Features
 --------
@@ -104,7 +104,7 @@ Features
 * Supports Python 2.7, Python 3.4+ and PyPy.
 
 * IPython/Jupyter Notebook integration.
-  `SVG rendering docs <https://python-chess.readthedocs.io/en/v0.23.10/svg.html>`_.
+  `SVG rendering docs <https://python-chess.readthedocs.io/en/v0.23.11/svg.html>`_.
 
   .. code:: python
 
@@ -114,7 +114,7 @@ Features
 
 * Chess variants: Standard, Chess960, Suicide, Giveaway, Atomic,
   King of the Hill, Racing Kings, Horde, Three-check, Crazyhouse.
-  `Variant docs <https://python-chess.readthedocs.io/en/v0.23.10/variant.html>`_.
+  `Variant docs <https://python-chess.readthedocs.io/en/v0.23.11/variant.html>`_.
 
 * Make and unmake moves.
 
@@ -236,10 +236,10 @@ Features
       >>> ops == {'bm': [chess.Move.from_uci('d6d1')], 'id': 'BK.01'}
       True
 
-* Detects `absolute pins and their directions <https://python-chess.readthedocs.io/en/v0.23.10/core.html#chess.Board.pin>`_.
+* Detects `absolute pins and their directions <https://python-chess.readthedocs.io/en/v0.23.11/core.html#chess.Board.pin>`_.
 
 * Reads Polyglot opening books.
-  `Docs <https://python-chess.readthedocs.io/en/v0.23.10/polyglot.html>`__.
+  `Docs <https://python-chess.readthedocs.io/en/v0.23.11/polyglot.html>`__.
 
   .. code:: python
 
@@ -260,7 +260,7 @@ Features
 
 * Reads and writes PGNs. Supports headers, comments, NAGs and a tree of
   variations.
-  `Docs <https://python-chess.readthedocs.io/en/v0.23.10/pgn.html>`__.
+  `Docs <https://python-chess.readthedocs.io/en/v0.23.11/pgn.html>`__.
 
   .. code:: python
 
@@ -300,10 +300,10 @@ Features
       '0-1'
 
 * Probe Gaviota endgame tablebases (DTM, WDL).
-  `Docs <https://python-chess.readthedocs.io/en/v0.23.10/gaviota.html>`__.
+  `Docs <https://python-chess.readthedocs.io/en/v0.23.11/gaviota.html>`__.
 
 * Probe Syzygy endgame tablebases (DTZ, WDL).
-  `Docs <https://python-chess.readthedocs.io/en/v0.23.10/syzygy.html>`__.
+  `Docs <https://python-chess.readthedocs.io/en/v0.23.11/syzygy.html>`__.
 
   .. code:: python
 
@@ -320,7 +320,7 @@ Features
       >>> tablebases.close()
 
 * Communicate with an UCI engine.
-  `Docs <https://python-chess.readthedocs.io/en/v0.23.10/uci.html>`__.
+  `Docs <https://python-chess.readthedocs.io/en/v0.23.11/uci.html>`__.
 
   .. code:: python
 

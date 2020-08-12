@@ -22,8 +22,8 @@ define COLOR_LEGAL_DST = '#45c8ff50' # destination of a legal move
 define COLOR_WHITE = '#fff'
 
 define TEXT_SIZE = 26
-define TEXT_WHOSETURN_COORD = (1020, 10)
-define TEXT_STATUS_COORD = (1020, 50)
+define TEXT_WHOSETURN_COORD = (1020, 20)
+define TEXT_STATUS_COORD = (1020, 60)
 
 # use tuples for immutability
 define PIECE_TYPES = ('p', 'r', 'b', 'n', 'k', 'q')
@@ -33,18 +33,28 @@ define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
 
 # file paths
 define CHESSPIECES_PATH = 'images/chesspieces/'
+
 define AUDIO_MOVE = 'audio/move.wav'
 define AUDIO_CAPTURE = 'audio/capture.wav'
+define AUDIO_PROMOTION = 'audio/promotion.wav'
 define AUDIO_CHECK = 'audio/check.wav'
 define AUDIO_CHECKMATE = 'audio/checkmate.wav'
 define AUDIO_STALEMATE = 'audio/stalemate.wav'
+
+define STOCKFISH = 'bin/stockfish-11-64'
+
+# stockfish params
+define MAX_MOVETIME = 3000 # max think time in millisec
+define MAX_DEPTH = 20
 
 # END DEF
 
 # BEGIN DEFAULT
 
-default fen = None
-# default fen = 'rnbq1bnr/pp1pPppp/8/8/4P3/8/PpPP1PPP/R1BQKBNR w KQkq c6 0 2'
+$ import chess
+default fen = chess.STARTING_FEN
+# default fen = None
+# default fen = 'rnbqb1nr/pp1pPppp/8/8/4P3/8/PpPP1PPP/R1BQKBNR w KQkq c6 0 2'
 default chess_displayble = ChessDisplayable(fen=fen)
 
 # END DEFAULT
@@ -74,6 +84,8 @@ screen select_promotion_screen:
 
 screen chess:
     default hover_displayble = HoverDisplayable()
+    default chess_displayble = ChessDisplayable(fen=fen, 
+        player_color=player_color, movetime=movetime, depth=depth)
     # TODO: programmatically define the chess board background as an Image obj
     add "bg chessboard" # the bg doesn't need to be redraw every time
     add chess_displayble
@@ -88,11 +100,13 @@ screen chess:
 init python:
 
     # use UCI for move notations and FEN for board and move history
-    # cursor and coord may be used interchangably
+    # terms like cursor and coord, Stockfish and AI may be used interchangably
 
-    # https://python-chess.readthedocs.io/en/v0.23.10/
+    # https://python-chess.readthedocs.io/en/v0.23.11/
     import chess
+    import chess.uci
     import pygame
+    import os
     
     class HoverDisplayable(renpy.Displayable):
         """
@@ -119,13 +133,27 @@ init python:
     class ChessDisplayable(renpy.Displayable):
         """
         The main displayable for the chess minigame
+        If player_color is None, use Player vs. Player mode
+        Else, use Player vs. Stockfish mode
+        player_color: None, chess.WHITE, chess.BLACK
         """
-        def __init__(self, fen=chess.STARTING_FEN):
+        def __init__(self, fen=chess.STARTING_FEN, player_color=None, movetime=2000, depth=10):
             super(ChessDisplayable, self).__init__()
 
             if not fen:
                 fen = chess.STARTING_FEN
             self.board = chess.Board(fen=fen)
+
+            self.player_color = None
+            if player_color is not None:
+                self.player_color = player_color
+                stockfish_path = os.path.abspath(os.path.join(config.basedir, 'game', STOCKFISH))
+                self.stockfish = chess.uci.popen_engine(stockfish_path)
+                self.stockfish.position(self.board)
+                self.stockfish_movetime = movetime if movetime <= MAX_MOVETIME else MAX_MOVETIME
+                self.stockfish_depth = depth if depth <= MAX_DEPTH else MAX_DEPTH
+            else:
+                self.stockfish = None
 
             # displayables
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
@@ -139,7 +167,7 @@ init python:
             self.legal_dsts = []
             # return once a winner has been determined
             self.winner = None
-
+            # promotion piece type will be set by the buttons on select_promotion_screen
             self.promotion = None
 
         def render(self, width, height, st, at):
@@ -182,6 +210,18 @@ init python:
             return render
 
         def event(self, ev, x, y, st):
+            # skip GUI interaction for AI's turn in Player vs. AI mode
+            if self.stockfish and self.board.turn != self.player_color:
+                self.stockfish.position(self.board)
+                move = self.stockfish.go(movetime=self.stockfish_movetime, 
+                    depth=self.stockfish_depth)
+                move = move.bestmove
+                self.play_move_audio(move)
+                self.board.push(move)
+                self.check_game_status()
+                renpy.redraw(self, 0)
+                return
+
             if X_MIN < x < X_MAX and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                 # first click, check if loc is selectable
                 if self.src_coord is None:
@@ -196,6 +236,7 @@ init python:
                         renpy.redraw(self, 0)
                     else: # deselect
                         self.src_coord = None
+                    self.promotion = None
 
                 # second click, check if should deselect
                 else:
@@ -203,51 +244,20 @@ init python:
                     dst_square = coord_to_square(dst_coord)
                     src_square = coord_to_square(self.src_coord)
 
-                    # check if is promotion
-                    promotion = None
-                    if self.has_promoting_piece(src_square):
-                        # TODO: show/hide UI for selecting promotion
-                        pass
-
                     # move construction
                     move = chess.Move(src_square, dst_square, promotion=self.promotion)
+                    if self.has_promoting_piece(src_square) and not move.promotion:
+                        # TODO: show/hide UI for selecting promotion
+                        renpy.notify('Please select a piece type to promote to')
+                        pass
+
                     if move in self.board.legal_moves:
-
-                        if self.board.is_capture(move):
-                            renpy.sound.play(AUDIO_CAPTURE)
-                        else:
-                            renpy.sound.play(AUDIO_MOVE)
-
+                        self.play_move_audio(move)
                         self.board.push(move)
-
-                        # check if is checkmate, in check, or stalemate
-                        # need is_checkmate first b/c is_check implies is_checkmate
-                        if self.board.is_checkmate():
-                            self.status_txt = Text('Checkmate', 
-                                color=COLOR_WHITE, size=TEXT_SIZE)
-                            renpy.sound.play(AUDIO_CHECKMATE)
-                            # after a move, if it's white's turn, that means black has
-                            # just moved and put white into checkmate, thus winner is black
-                            winner = 'black' if self.board.turn else 'white'
-                            renpy.notify('Checkmate! The winner is %s' % winner)
-                            self.winner = winner
-                        elif self.board.is_check():
-                            self.status_txt = Text('In Check', 
-                                color=COLOR_WHITE, size=TEXT_SIZE)
-                            renpy.sound.play(AUDIO_CHECK)
-                        elif self.board.is_stalemate():
-                            self.status_txt = Text('Stalemate', 
-                                color=COLOR_WHITE, size=TEXT_SIZE)
-                            renpy.sound.play(AUDIO_STALEMATE)
-                            renpy.notify('Stalemate')
-                            self.winner = 'draw'
-                        else:
-                            self.status_txt = None
-
+                        self.check_game_status()
                         renpy.redraw(self, 0)
 
                     self.src_coord = None
-                    self.promotion = None
                     self.legal_dsts = []
 
         # helpers
@@ -277,6 +287,48 @@ init python:
                 return rank == PROMOTION_RANK_WHITE
             else:
                 return rank == PROMOTION_RANK_BLACK
+
+        def play_move_audio(self, move):
+            if move.promotion:
+                renpy.sound.play(AUDIO_PROMOTION)
+            else:
+                if self.board.is_capture(move):
+                    renpy.sound.play(AUDIO_CAPTURE)
+                else:
+                    renpy.sound.play(AUDIO_MOVE)
+
+        def check_game_status(self):
+            """
+            Check if is checkmate, in check, or stalemate
+            and update status text display accordingly
+            """
+            # need is_checkmate first b/c is_check implies is_checkmate
+            if self.board.is_checkmate():
+                self.status_txt = Text('Checkmate', 
+                    color=COLOR_WHITE, size=TEXT_SIZE)
+                renpy.sound.play(AUDIO_CHECKMATE)
+                # after a move, if it's white's turn, that means black has
+                # just moved and put white into checkmate, thus winner is black
+                winner = 'black' if self.board.turn else 'white'
+                renpy.notify('Checkmate! The winner is %s' % winner)
+                self.winner = winner
+                raise renpy.IgnoreEvent()
+
+            elif self.board.is_check():
+                self.status_txt = Text('In Check', 
+                    color=COLOR_WHITE, size=TEXT_SIZE)
+                renpy.sound.play(AUDIO_CHECK)
+
+            elif self.board.is_stalemate():
+                self.status_txt = Text('Stalemate', 
+                    color=COLOR_WHITE, size=TEXT_SIZE)
+                renpy.sound.play(AUDIO_STALEMATE)
+                renpy.notify('Stalemate')
+                self.winner = 'draw'
+                raise renpy.IgnoreEvent()
+                
+            else:
+                self.status_txt = None
 
     # helper functions
     def coord_to_square(coord):
