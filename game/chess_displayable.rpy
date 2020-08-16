@@ -219,18 +219,16 @@ init python:
             if X_MIN < x < X_MAX and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                 # first click, check if loc is selectable
                 if self.src_coord is None:
-                    self.src_coord = round_coord(x, y)
-                    src_square = coord_to_square(self.src_coord)
+                    src_coord = round_coord(x, y)
+                    src_square = coord_to_square(src_coord)
                     # redraw if there is a piece of the current player's color on square
                     piece = self.board.piece_at(src_square)
                     if piece and piece.color == self.board.turn:
+                        self.src_coord = src_coord
                         # save legal destinations to be highlighted when redrawing render
                         self.legal_dsts = [move.to_square for move
                         in self.board.legal_moves if move.from_square == src_square]
                         renpy.redraw(self, 0)
-                    else: # deselect
-                        self.src_coord = None
-                    self.promotion = None
 
                 # second click, check if should deselect
                 else:
@@ -238,23 +236,40 @@ init python:
                     dst_square = coord_to_square(dst_coord)
                     src_square = coord_to_square(self.src_coord)
 
+                    # if player selects the same piece, deselect
+                    if dst_square == src_square:
+                        self.src_coord = None
+                        self.legal_dsts = []
+                        renpy.redraw(self, 0)
+                        return
+
+                    # if player selects a piece of their color, change selection to that piece
+                    piece = self.board.piece_at(dst_square)
+                    if piece and piece.color == self.board.turn: # repeat code from first click
+                        self.src_coord = dst_coord
+                        src_square = dst_square
+                        # save legal destinations to be highlighted when redrawing render
+                        self.legal_dsts = [move.to_square for move
+                        in self.board.legal_moves if move.from_square == src_square]
+                        renpy.redraw(self, 0)
+                        return
+
                     # move construction
                     move = chess.Move(src_square, dst_square, promotion=self.promotion)
                     if self.has_promoting_piece(src_square) and not move.promotion:
                         # TODO: show/hide UI for selecting promotion
                         renpy.notify('Please select a piece type to promote to')
-                        pass
 
                     if move in self.board.legal_moves:
                         self.play_move_audio(move)
 
                         self.board.push(move)
+                        self.src_coord = None
+                        self.legal_dsts = []
                         renpy.redraw(self, 0)
 
                         self.check_game_status()
 
-                    self.src_coord = None
-                    self.legal_dsts = []
 
         # helpers
         def load_piece_imgs(self):
