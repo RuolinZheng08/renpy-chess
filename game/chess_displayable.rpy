@@ -7,8 +7,6 @@ define Y_MAX = 720
 
 define X_LEFT_OFFSET = 280 # the horizontal offset to the left of the chessboard UI
 
-define PIECE_COORD_OFFSET = 5 # XXX: tweak to center piece in loc
-
 # use loc to mean UI square and distinguish from logical square
 define LOC_LEN = 90 # length of one side of a loc
 
@@ -173,10 +171,8 @@ init python:
                     piece_img = self.piece_imgs[piece.symbol()]
                     piece_coord = indices_to_coord(chess.square_file(square),
                                                     chess.square_rank(square))
-                    # XXX: use PIECE_COORD_OFFSET to force-center piece in loc
                     render.place(piece_img, 
-                        x=piece_coord[0] - PIECE_COORD_OFFSET, 
-                        y=piece_coord[1] - PIECE_COORD_OFFSET)
+                        x=piece_coord[0], y=piece_coord[1])
 
             # render selected loc
             if self.src_coord:
