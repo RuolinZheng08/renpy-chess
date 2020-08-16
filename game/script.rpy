@@ -49,5 +49,7 @@ label start:
 
     if _return == player_color:
         e 'Congratulations, player!'
+    elif _return is not None:
+        e 'Better luck next time, player.'
 
     return

@@ -74,7 +74,6 @@ screen select_promotion_screen:
         textbutton "♝" action SetVariable('chess_displayble.promotion', chess.BISHOP) style "promotion_piece"
         textbutton "♞" action SetVariable('chess_displayble.promotion', chess.KNIGHT) style "promotion_piece"
         textbutton "♛" action SetVariable('chess_displayble.promotion', chess.QUEEN) style "promotion_piece"
-    # modal True
 
 screen chess:
     default hover_displayble = HoverDisplayable()
@@ -84,7 +83,6 @@ screen chess:
     add "bg chessboard" # the bg doesn't need to be redraw every time
     add chess_displayble
     add hover_displayble # hover loc over chesspieces
-    # modal True
     if chess_displayble.is_gameover:
         timer 6.0 action Return(chess_displayble.winner)
     use select_promotion_screen
@@ -211,9 +209,11 @@ init python:
                     depth=self.stockfish_depth)
                 move = move.bestmove
                 self.play_move_audio(move)
+
                 self.board.push(move)
+                renpy.redraw(self, 0) # redraw pieces
+
                 self.check_game_status()
-                renpy.redraw(self, 0)
                 return
 
             if X_MIN < x < X_MAX and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
@@ -247,9 +247,11 @@ init python:
 
                     if move in self.board.legal_moves:
                         self.play_move_audio(move)
+
                         self.board.push(move)
-                        self.check_game_status()
                         renpy.redraw(self, 0)
+
+                        self.check_game_status()
 
                     self.src_coord = None
                     self.legal_dsts = []
@@ -301,10 +303,13 @@ init python:
                 self.status_txt = Text('Checkmate', 
                     color=COLOR_WHITE, size=TEXT_SIZE)
                 renpy.sound.play(AUDIO_CHECKMATE)
+                renpy.redraw(self, 0)
+
                 # after a move, if it's white's turn, that means black has
                 # just moved and put white into checkmate, thus winner is black
+                # hence need to negate self.board.turn to get winner
                 renpy.notify('Checkmate! The winner is %s' % ('black' if self.board.turn else 'white'))
-                self.winner = self.board.turn
+                self.winner = not self.board.turn
                 self.is_gameover = True
                 raise renpy.IgnoreEvent()
 
@@ -312,11 +317,14 @@ init python:
                 self.status_txt = Text('In Check', 
                     color=COLOR_WHITE, size=TEXT_SIZE)
                 renpy.sound.play(AUDIO_CHECK)
+                renpy.redraw(self, 0)
 
             elif self.board.is_stalemate():
                 self.status_txt = Text('Stalemate', 
                     color=COLOR_WHITE, size=TEXT_SIZE)
                 renpy.sound.play(AUDIO_STALEMATE)
+                renpy.redraw(self, 0)
+
                 renpy.notify('Stalemate')
                 self.winner = None
                 self.is_gameover = True
