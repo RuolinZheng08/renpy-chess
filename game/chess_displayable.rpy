@@ -7,8 +7,6 @@ define Y_MAX = 720
 
 define X_LEFT_OFFSET = 280 # the horizontal offset to the left of the chessboard UI
 
-define PIECE_COORD_OFFSET = 5 # XXX: tweak to center piece in loc
-
 # use loc to mean UI square and distinguish from logical square
 define LOC_LEN = 90 # length of one side of a loc
 
@@ -51,10 +49,7 @@ define MAX_DEPTH = 20
 
 # BEGIN DEFAULT
 
-$ import chess
 default fen = chess.STARTING_FEN
-# default fen = None
-# default fen = 'rnbqb1nr/pp1pPppp/8/8/4P3/8/PpPP1PPP/R1BQKBNR w KQkq c6 0 2'
 default chess_displayble = ChessDisplayable(fen=fen)
 
 # END DEFAULT
@@ -75,12 +70,10 @@ style promotion_piece_text is text:
 screen select_promotion_screen:
     text "Select promotion piece type" xpos 25 ypos 45 color COLOR_WHITE size 16
     vbox xalign 0.09 ypos 80:
-        $ from chess import ROOK, BISHOP, KNIGHT, QUEEN
-        textbutton "♜" action SetVariable('chess_displayble.promotion', ROOK) style "promotion_piece"
-        textbutton "♝" action SetVariable('chess_displayble.promotion', BISHOP) style "promotion_piece"
-        textbutton "♞" action SetVariable('chess_displayble.promotion', KNIGHT) style "promotion_piece"
-        textbutton "♛" action SetVariable('chess_displayble.promotion', QUEEN) style "promotion_piece"
-    # modal True
+        textbutton "♜" action SetVariable('chess_displayble.promotion', chess.ROOK) style "promotion_piece"
+        textbutton "♝" action SetVariable('chess_displayble.promotion', chess.BISHOP) style "promotion_piece"
+        textbutton "♞" action SetVariable('chess_displayble.promotion', chess.KNIGHT) style "promotion_piece"
+        textbutton "♛" action SetVariable('chess_displayble.promotion', chess.QUEEN) style "promotion_piece"
 
 screen chess:
     default hover_displayble = HoverDisplayable()
@@ -90,8 +83,7 @@ screen chess:
     add "bg chessboard" # the bg doesn't need to be redraw every time
     add chess_displayble
     add hover_displayble # hover loc over chesspieces
-    # modal True
-    if chess_displayble.winner:
+    if chess_displayble.is_gameover:
         timer 6.0 action Return(chess_displayble.winner)
     use select_promotion_screen
 
@@ -140,8 +132,6 @@ init python:
         def __init__(self, fen=chess.STARTING_FEN, player_color=None, movetime=2000, depth=10):
             super(ChessDisplayable, self).__init__()
 
-            if not fen:
-                fen = chess.STARTING_FEN
             self.board = chess.Board(fen=fen)
 
             self.player_color = None
@@ -165,10 +155,14 @@ init python:
             self.src_coord = None
             # a list of legal destinations for the currently selected piece
             self.legal_dsts = []
-            # return once a winner has been determined
-            self.winner = None
+
             # promotion piece type will be set by the buttons on select_promotion_screen
             self.promotion = None
+
+            # set to True at checkmate or stalemate
+            self.is_gameover = False
+            # return to _return in script, could be chess.WHITE, chess.BLACK, or, None
+            self.winner = None # None for stalemate
 
         def render(self, width, height, st, at):
             render = renpy.Render(width, height)
@@ -179,10 +173,8 @@ init python:
                     piece_img = self.piece_imgs[piece.symbol()]
                     piece_coord = indices_to_coord(chess.square_file(square),
                                                     chess.square_rank(square))
-                    # XXX: use PIECE_COORD_OFFSET to force-center piece in loc
                     render.place(piece_img, 
-                        x=piece_coord[0] - PIECE_COORD_OFFSET, 
-                        y=piece_coord[1] - PIECE_COORD_OFFSET)
+                        x=piece_coord[0], y=piece_coord[1])
 
             # render selected loc
             if self.src_coord:
@@ -217,26 +209,26 @@ init python:
                     depth=self.stockfish_depth)
                 move = move.bestmove
                 self.play_move_audio(move)
+
                 self.board.push(move)
+                renpy.redraw(self, 0) # redraw pieces
+
                 self.check_game_status()
-                renpy.redraw(self, 0)
                 return
 
             if X_MIN < x < X_MAX and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                 # first click, check if loc is selectable
                 if self.src_coord is None:
-                    self.src_coord = round_coord(x, y)
-                    src_square = coord_to_square(self.src_coord)
+                    src_coord = round_coord(x, y)
+                    src_square = coord_to_square(src_coord)
                     # redraw if there is a piece of the current player's color on square
                     piece = self.board.piece_at(src_square)
                     if piece and piece.color == self.board.turn:
+                        self.src_coord = src_coord
                         # save legal destinations to be highlighted when redrawing render
                         self.legal_dsts = [move.to_square for move
                         in self.board.legal_moves if move.from_square == src_square]
                         renpy.redraw(self, 0)
-                    else: # deselect
-                        self.src_coord = None
-                    self.promotion = None
 
                 # second click, check if should deselect
                 else:
@@ -244,21 +236,40 @@ init python:
                     dst_square = coord_to_square(dst_coord)
                     src_square = coord_to_square(self.src_coord)
 
+                    # if player selects the same piece, deselect
+                    if dst_square == src_square:
+                        self.src_coord = None
+                        self.legal_dsts = []
+                        renpy.redraw(self, 0)
+                        return
+
+                    # if player selects a piece of their color, change selection to that piece
+                    piece = self.board.piece_at(dst_square)
+                    if piece and piece.color == self.board.turn: # repeat code from first click
+                        self.src_coord = dst_coord
+                        src_square = dst_square
+                        # save legal destinations to be highlighted when redrawing render
+                        self.legal_dsts = [move.to_square for move
+                        in self.board.legal_moves if move.from_square == src_square]
+                        renpy.redraw(self, 0)
+                        return
+
                     # move construction
                     move = chess.Move(src_square, dst_square, promotion=self.promotion)
                     if self.has_promoting_piece(src_square) and not move.promotion:
                         # TODO: show/hide UI for selecting promotion
                         renpy.notify('Please select a piece type to promote to')
-                        pass
 
                     if move in self.board.legal_moves:
                         self.play_move_audio(move)
+
                         self.board.push(move)
-                        self.check_game_status()
+                        self.src_coord = None
+                        self.legal_dsts = []
                         renpy.redraw(self, 0)
 
-                    self.src_coord = None
-                    self.legal_dsts = []
+                        self.check_game_status()
+
 
         # helpers
         def load_piece_imgs(self):
@@ -307,26 +318,33 @@ init python:
                 self.status_txt = Text('Checkmate', 
                     color=COLOR_WHITE, size=TEXT_SIZE)
                 renpy.sound.play(AUDIO_CHECKMATE)
+                renpy.redraw(self, 0)
+
                 # after a move, if it's white's turn, that means black has
                 # just moved and put white into checkmate, thus winner is black
-                winner = 'black' if self.board.turn else 'white'
-                renpy.notify('Checkmate! The winner is %s' % winner)
-                self.winner = winner
+                # hence need to negate self.board.turn to get winner
+                renpy.notify('Checkmate! The winner is %s' % ('black' if self.board.turn else 'white'))
+                self.winner = not self.board.turn
+                self.is_gameover = True
                 raise renpy.IgnoreEvent()
 
             elif self.board.is_check():
                 self.status_txt = Text('In Check', 
                     color=COLOR_WHITE, size=TEXT_SIZE)
                 renpy.sound.play(AUDIO_CHECK)
+                renpy.redraw(self, 0)
 
             elif self.board.is_stalemate():
                 self.status_txt = Text('Stalemate', 
                     color=COLOR_WHITE, size=TEXT_SIZE)
                 renpy.sound.play(AUDIO_STALEMATE)
+                renpy.redraw(self, 0)
+
                 renpy.notify('Stalemate')
-                self.winner = 'draw'
+                self.winner = None
+                self.is_gameover = True
                 raise renpy.IgnoreEvent()
-                
+
             else:
                 self.status_txt = None
 
