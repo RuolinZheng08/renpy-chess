@@ -85,7 +85,7 @@ screen chess:
     add chess_displayble
     add hover_displayble # hover loc over chesspieces
     # modal True
-    if chess_displayble.winner:
+    if chess_displayble.is_gameover:
         timer 6.0 action Return(chess_displayble.winner)
     use select_promotion_screen
 
@@ -157,10 +157,14 @@ init python:
             self.src_coord = None
             # a list of legal destinations for the currently selected piece
             self.legal_dsts = []
-            # return once a winner has been determined
-            self.winner = None
+
             # promotion piece type will be set by the buttons on select_promotion_screen
             self.promotion = None
+
+            # set to True at checkmate or stalemate
+            self.is_gameover = False
+            # return to _return in script, could be chess.WHITE, chess.BLACK, or, None
+            self.winner = None # None for stalemate
 
         def render(self, width, height, st, at):
             render = renpy.Render(width, height)
@@ -299,9 +303,9 @@ init python:
                 renpy.sound.play(AUDIO_CHECKMATE)
                 # after a move, if it's white's turn, that means black has
                 # just moved and put white into checkmate, thus winner is black
-                winner = 'black' if self.board.turn else 'white'
-                renpy.notify('Checkmate! The winner is %s' % winner)
-                self.winner = winner
+                renpy.notify('Checkmate! The winner is %s' % ('black' if self.board.turn else 'white'))
+                self.winner = self.board.turn
+                self.is_gameover = True
                 raise renpy.IgnoreEvent()
 
             elif self.board.is_check():
@@ -314,7 +318,8 @@ init python:
                     color=COLOR_WHITE, size=TEXT_SIZE)
                 renpy.sound.play(AUDIO_STALEMATE)
                 renpy.notify('Stalemate')
-                self.winner = 'draw'
+                self.winner = None
+                self.is_gameover = True
                 raise renpy.IgnoreEvent()
 
             else:

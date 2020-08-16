@@ -8,11 +8,6 @@ define e = Character("Eileen")
 # The game starts here.
 
 label start:
-    python:
-        player_color = None # None for Player vs. Player
-        movetime = None
-        depth = None
-
     scene bg room
     e "Welcome to the Ren'Py Chess Game!"
 
@@ -20,7 +15,9 @@ label start:
         "Please select the game mode."
 
         "Player vs. Player":
-            pass
+            $ player_color = None # None for Player vs. Player
+            $ movetime = None
+            $ depth = None
 
         "Player vs. Computer":
             $ movetime = 2000
@@ -43,11 +40,14 @@ label start:
     $ quick_menu = True
     window show
 
-    if _return == 'white':
-        e 'white won'
-    elif _return == 'black':
-        e 'black won'
-    elif _return == 'draw':
-        e 'game ended in a draw'
+    if _return == chess.WHITE:
+        e 'The winner is White.'
+    elif _return == chess.BLACK:
+        e 'The winner is Black.'
+    elif _return is None:
+        e 'The game ended in a draw.'
+
+    if _return == player_color:
+        e 'Congratulations, player!'
 
     return
