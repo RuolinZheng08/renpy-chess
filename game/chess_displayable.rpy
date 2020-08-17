@@ -1,12 +1,5 @@
 # BEGIN DEF
 
-define X_MIN = 280
-define X_MAX = 1000
-define Y_MIN = 0
-define Y_MAX = 720
-
-define X_LEFT_OFFSET = 280 # the horizontal offset to the left of the chessboard UI
-
 # use loc to mean UI square and distinguish from logical square
 define LOC_LEN = 90 # length of one side of a loc
 
@@ -63,25 +56,40 @@ style promotion_piece_text is text:
 
 # BEGIN SCREEN
 
-# screen select_promotion_screen:
-#     text "Select promotion piece type" xpos 25 ypos 45 color COLOR_WHITE size 16
-#     vbox xalign 0.09 ypos 80:
-#         textbutton "♜" action SetVariable('chess_displayable.promotion', chess.ROOK) style "promotion_piece"
-#         textbutton "♝" action SetVariable('chess_displayable.promotion', chess.BISHOP) style "promotion_piece"
-#         textbutton "♞" action SetVariable('chess_displayable.promotion', chess.KNIGHT) style "promotion_piece"
-#         textbutton "♛" action SetVariable('chess_displayable.promotion', chess.QUEEN) style "promotion_piece"
-
 screen chess:
     default hover_displayable = HoverDisplayable()
     default chess_displayable = ChessDisplayable(fen=fen, 
         player_color=player_color, movetime=movetime, depth=depth)
-    # TODO: programmatically define the chess board background as an Image obj
-    add "bg chessboard" # the bg doesn't need to be redraw every time
-    add chess_displayable
-    add hover_displayable # hover loc over chesspieces
-    if chess_displayable.is_gameover:
-        timer 3.0 action Return(chess_displayable.winner)
-    # use select_promotion_screen
+
+    add Solid("#000") # black
+    fixed xpos 280:
+        add Image('images/chessboard.png')
+        add chess_displayable
+        add hover_displayable # hover loc over chesspieces
+
+    # frame:
+
+
+        # left panel for diplaying whoseturn text
+
+        # middle panel for chess displayable
+        # fixed:
+            # TODO: programmatically define the chess board background as an Image obj
+            # add Image('images/chessboard.png') xalign 0.5 # the bg doesn't need to be redraw every time
+            # add chess_displayable
+            # add hover_displayable # hover loc over chesspieces
+            # if chess_displayable.is_gameover:
+            #     timer 3.0 action Return(chess_displayable.winner)
+
+        # # right panel for promotion selection
+        # text "Select promotion piece type" xpos 25 ypos 45 color COLOR_WHITE size 16
+        # vbox xalign 0.09 ypos 80:
+        #     textbutton "♜" action SetLocalVariable('chess_displayable.promotion', chess.ROOK) style "promotion_piece"
+        #     textbutton "♝" action SetLocalVariable('chess_displayable.promotion', chess.BISHOP) style "promotion_piece"
+        #     textbutton "♞" action SetLocalVariable('chess_displayable.promotion', chess.KNIGHT) style "promotion_piece"
+        #     textbutton "♛" action SetLocalVariable('chess_displayable.promotion', chess.QUEEN) style "promotion_piece"
+
+    
 
 # END SCREEN
 
@@ -114,7 +122,7 @@ init python:
             return render
 
         def event(self, ev, x, y, st):
-            if X_MIN < x < X_MAX and ev.type == pygame.MOUSEMOTION:
+            if 0 < x < config.screen_height and ev.type == pygame.MOUSEMOTION:
                 self.hover_coord = round_coord(x, y)
                 renpy.redraw(self, 0)                
 
@@ -216,7 +224,7 @@ init python:
                 self.check_game_status()
                 return
 
-            if X_MIN < x < X_MAX and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            if 0 < x < config.screen_height and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
                 # first click, check if loc is selectable
                 if self.src_coord is None:
                     src_coord = round_coord(x, y)
@@ -353,8 +361,7 @@ init python:
     # helper functions
     def coord_to_square(coord):
         x, y = coord
-        assert X_MIN <= x <= X_MAX and Y_MIN <= y <= Y_MAX
-        file_idx = (x - X_LEFT_OFFSET) / LOC_LEN
+        file_idx = x / LOC_LEN
         rank_idx = INDEX_MAX - (y / LOC_LEN)
         square = chess.square(file_idx, rank_idx)
         return square
@@ -363,13 +370,12 @@ init python:
         '''
         for drawing, computes cursor coord rounded to the upperleft coord of the current loc
         '''
-        assert X_MIN <= x <= X_MAX and Y_MIN <= y <= Y_MAX
-        x_round = (x - X_LEFT_OFFSET) / LOC_LEN * LOC_LEN + X_LEFT_OFFSET
+        x_round = x / LOC_LEN * LOC_LEN
         y_round = y / LOC_LEN * LOC_LEN
         return (x_round, y_round)
 
     def indices_to_coord(file_idx, rank_idx):
         assert INDEX_MIN <= file_idx <= INDEX_MAX and INDEX_MIN <= file_idx <= INDEX_MAX
-        x = LOC_LEN * file_idx + X_LEFT_OFFSET
+        x = LOC_LEN * file_idx
         y = LOC_LEN * (INDEX_MAX - rank_idx)
         return (x, y)
