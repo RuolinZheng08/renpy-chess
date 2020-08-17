@@ -10,6 +10,7 @@ define e = Character("Eileen")
 label start:
     scene bg room
     e "Welcome to the Ren'Py Chess Game!"
+    $ fen = chess.STARTING_FEN
 
     menu:
         "Please select the game mode."
@@ -40,16 +41,14 @@ label start:
     $ quick_menu = True
     window show
 
-    if _return == chess.WHITE:
-        e 'The winner is White.'
-    elif _return == chess.BLACK:
-        e 'The winner is Black.'
-    elif _return is None:
+    if _return == STALEMATE:
         e 'The game ended in a draw.'
-
-    if _return == player_color:
-        e 'Congratulations, player!'
-    elif _return is not None:
-        e 'Better luck next time, player.'
+    else:
+        $ winner = 'White' if _return == chess.WHITE else 'Black'
+        e 'The winner is [winner].'
+        if _return == player_color:
+            e 'Congratulations, player!'
+        elif _return is not None:
+            e 'Better luck next time, player.'
 
     return
