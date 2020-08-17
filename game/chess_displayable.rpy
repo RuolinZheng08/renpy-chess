@@ -47,13 +47,24 @@ define INCHECK = 3
 
 # BEGIN STYLE
 
+style game_status_text is text:
+    color COLOR_WHITE
+    size TEXT_SIZE
+
 style promotion_piece is button
 style promotion_piece_text is text:
     size 45
-    hover_color gui.hover_color
     color gui.idle_color
+    hover_color gui.selected_color # hover color is hard to see
+    selected_color COLOR_WHITE
 
 # END STYLE
+
+# for promotion UI
+# calling SetVariable('chess_displayable.promotion', val) will cause
+# renpy to make a variable literally named chess_displayable.promotion
+# instead of assigning it to a class member
+default PROMOTION = None
 
 # BEGIN SCREEN
 
@@ -65,7 +76,19 @@ screen chess:
     add Solid("#000") # black
 
     # left panel for diplaying whoseturn text
-    text "Whose turn: [chess_displayable.board.turn]" color COLOR_WHITE size TEXT_SIZE
+    fixed xpos 20 ypos 80 spacing 40:
+        vbox:
+            showif chess_displayable.board.turn == chess.WHITE:
+                text "Whose turn: White" style "game_status_text"
+            else:
+                text "Whose turn: Black" style "game_status_text"
+            
+            showif chess_displayable.game_status == CHECKMATE:
+                text "Checkmate" style "game_status_text"
+            elif chess_displayable.game_status == STALEMATE:
+                text "Stalemate" style "game_status_text"
+            elif chess_displayable.game_status == INCHECK:
+                text "In Check" style "game_status_text"
 
     # middle panel for chess displayable
     fixed xpos 280:
@@ -78,14 +101,14 @@ screen chess:
             timer 4.0 action Return(STALEMATE)
 
     # right panel for promotion selection
-    showif chess_displayable.promotion:
+    showif chess_displayable.show_promotion_ui:
         text "Select promotion piece type" xpos 1010 ypos 180 color COLOR_WHITE size 18
         vbox xalign 0.9 yalign 0.5 spacing 20:
             null height 40
-            textbutton "♜" action SetScreenVariable('chess_displayable.promotion', chess.ROOK) style "promotion_piece"
-            textbutton "♝" action SetScreenVariable('chess_displayable.promotion', chess.BISHOP) style "promotion_piece"
-            textbutton "♞" action SetScreenVariable('chess_displayable.promotion', chess.KNIGHT) style "promotion_piece"
-            textbutton "♛" action SetScreenVariable('chess_displayable.promotion', chess.QUEEN) style "promotion_piece"
+            textbutton "♜" action SetVariable('PROMOTION', chess.ROOK) style "promotion_piece"
+            textbutton "♝" action SetVariable('PROMOTION', chess.BISHOP) style "promotion_piece"
+            textbutton "♞" action SetVariable('PROMOTION', chess.KNIGHT) style "promotion_piece"
+            textbutton "♛" action SetVariable('PROMOTION', chess.QUEEN) style "promotion_piece"
 
 # END SCREEN
 
@@ -156,8 +179,8 @@ init python:
             # a list of legal destinations for the currently selected piece
             self.legal_dsts = []
 
-            # promotion piece type will be set by the buttons on select_promotion_screen
-            self.promotion = None
+            # if True, show promotion UI screen
+            self.show_promotion_ui = False
 
             self.game_status = None
             # return to _return in script, could be chess.WHITE, chess.BLACK, or, None
@@ -211,6 +234,9 @@ init python:
                 return
 
             if 0 < x < config.screen_height and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+
+                global PROMOTION
+
                 # first click, check if loc is selectable
                 if self.src_coord is None:
                     src_coord = round_coord(x, y)
@@ -222,6 +248,11 @@ init python:
                         # save legal destinations to be highlighted when redrawing render
                         self.legal_dsts = [move.to_square for move
                         in self.board.legal_moves if move.from_square == src_square]
+
+                        if self.has_promoting_piece(src_square):
+                            self.show_promotion_ui = True
+                            PROMOTION = None
+
                         renpy.redraw(self, 0)
 
                 # second click, check if should deselect
@@ -245,12 +276,17 @@ init python:
                         # save legal destinations to be highlighted when redrawing render
                         self.legal_dsts = [move.to_square for move
                         in self.board.legal_moves if move.from_square == src_square]
+                        # the piece could be a promoting pawn
+                        if self.has_promoting_piece(src_square):
+                            self.show_promotion_ui = True
+                            PROMOTION = None
+
                         renpy.redraw(self, 0)
                         return
 
                     # move construction
-                    move = chess.Move(src_square, dst_square, promotion=self.promotion)
-                    if self.has_promoting_piece(src_square) and not move.promotion:
+                    move = chess.Move(src_square, dst_square, promotion=PROMOTION)
+                    if self.show_promotion_ui and not move.promotion:
                         # TODO: show/hide UI for selecting promotion
                         renpy.notify('Please select a piece type to promote to')
 
@@ -263,6 +299,8 @@ init python:
                         renpy.redraw(self, 0)
 
                         self.check_game_status()
+                        self.show_promotion_ui = False
+                        PROMOTION = None
 
         # helpers
         def load_piece_imgs(self):

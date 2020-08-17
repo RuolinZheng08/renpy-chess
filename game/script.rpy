@@ -11,6 +11,7 @@ label start:
     scene bg room
     e "Welcome to the Ren'Py Chess Game!"
     $ fen = chess.STARTING_FEN
+    $ fen = 'rnbq1bnr/pp1pPppp/8/8/4P3/8/PpPP1PPP/R1BQKBNR w KQkq c6 0 2'
 
     menu:
         "Please select the game mode."
