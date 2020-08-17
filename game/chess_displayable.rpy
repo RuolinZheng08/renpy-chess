@@ -7,20 +7,20 @@ define LOC_LEN = 90 # length of one side of a loc
 define INDEX_MIN = 0
 define INDEX_MAX = 7
 
+define PROMOTION_RANK_WHITE = 6 # INDEX_MAX - 1
+define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
+
 define COLOR_HOVER = '#00ff0050'
 define COLOR_SELECTED = '#0a82ff88'
 define COLOR_LEGAL_DST = '#45c8ff50' # destination of a legal move
 define COLOR_WHITE = '#fff'
 
 define TEXT_SIZE = 26
-define TEXT_WHOSETURN_COORD = (1020, 20)
-define TEXT_STATUS_COORD = (1020, 60)
+define TEXT_WHOSETURN_COORD = (-260, 40)
+define TEXT_STATUS_COORD = (-260, 80)
 
 # use tuples for immutability
 define PIECE_TYPES = ('p', 'r', 'b', 'n', 'k', 'q')
-
-define PROMOTION_RANK_WHITE = 6 # INDEX_MAX - 1
-define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
 
 # file paths
 define CHESSPIECES_PATH = 'images/chesspieces/'
@@ -38,19 +38,20 @@ define STOCKFISH = 'bin/stockfish-11-64'
 define MAX_MOVETIME = 3000 # max think time in millisec
 define MAX_DEPTH = 20
 
-# endgame return code
-define RETURN_DRAW = -1 # chess.WHITE is True i.e. 1 and chess.BLACK is False i.e. 0
+# status code enum
+define CHECKMATE = 1 # chess.WHITE is True i.e. 1 and chess.BLACK is False i.e. 0
+define STALEMATE = 2 # also endgame _return code
+define INCHECK = 3
 
 # END DEF
 
-# BEGIN STYLE # TODO: modify this
+# BEGIN STYLE
 
 style promotion_piece is button
 style promotion_piece_text is text:
     size 45
-    hover_color "#00FFFF"             # Cyan
-    outlines [ (0, "#0000FF", 1, 1) ] # Blue
-    color "#FF0000"                   # Red
+    hover_color gui.hover_color
+    color gui.idle_color
 
 # END STYLE
 
@@ -62,34 +63,29 @@ screen chess:
         player_color=player_color, movetime=movetime, depth=depth)
 
     add Solid("#000") # black
+
+    # left panel for diplaying whoseturn text
+    text "Whose turn: [chess_displayable.board.turn]" color COLOR_WHITE size TEXT_SIZE
+
+    # middle panel for chess displayable
     fixed xpos 280:
         add Image('images/chessboard.png')
         add chess_displayable
         add hover_displayable # hover loc over chesspieces
+        if chess_displayable.game_status == CHECKMATE:
+            timer 4.0 action Return(chess_displayable.winner)
+        elif chess_displayable.game_status == STALEMATE:
+            timer 4.0 action Return(STALEMATE)
 
-    # frame:
-
-
-        # left panel for diplaying whoseturn text
-
-        # middle panel for chess displayable
-        # fixed:
-            # TODO: programmatically define the chess board background as an Image obj
-            # add Image('images/chessboard.png') xalign 0.5 # the bg doesn't need to be redraw every time
-            # add chess_displayable
-            # add hover_displayable # hover loc over chesspieces
-            # if chess_displayable.is_gameover:
-            #     timer 3.0 action Return(chess_displayable.winner)
-
-        # # right panel for promotion selection
-        # text "Select promotion piece type" xpos 25 ypos 45 color COLOR_WHITE size 16
-        # vbox xalign 0.09 ypos 80:
-        #     textbutton "♜" action SetLocalVariable('chess_displayable.promotion', chess.ROOK) style "promotion_piece"
-        #     textbutton "♝" action SetLocalVariable('chess_displayable.promotion', chess.BISHOP) style "promotion_piece"
-        #     textbutton "♞" action SetLocalVariable('chess_displayable.promotion', chess.KNIGHT) style "promotion_piece"
-        #     textbutton "♛" action SetLocalVariable('chess_displayable.promotion', chess.QUEEN) style "promotion_piece"
-
-    
+    # right panel for promotion selection
+    showif chess_displayable.promotion:
+        text "Select promotion piece type" xpos 1010 ypos 180 color COLOR_WHITE size 18
+        vbox xalign 0.9 yalign 0.5 spacing 20:
+            null height 40
+            textbutton "♜" action SetScreenVariable('chess_displayable.promotion', chess.ROOK) style "promotion_piece"
+            textbutton "♝" action SetScreenVariable('chess_displayable.promotion', chess.BISHOP) style "promotion_piece"
+            textbutton "♞" action SetScreenVariable('chess_displayable.promotion', chess.KNIGHT) style "promotion_piece"
+            textbutton "♛" action SetScreenVariable('chess_displayable.promotion', chess.QUEEN) style "promotion_piece"
 
 # END SCREEN
 
@@ -122,6 +118,7 @@ init python:
             return render
 
         def event(self, ev, x, y, st):
+            # use screen height b/c chess displayable is a square
             if 0 < x < config.screen_height and ev.type == pygame.MOUSEMOTION:
                 self.hover_coord = round_coord(x, y)
                 renpy.redraw(self, 0)                
@@ -153,7 +150,6 @@ init python:
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
             self.legal_dst_img = Solid(COLOR_LEGAL_DST, xsize=LOC_LEN, ysize=LOC_LEN)
             self.piece_imgs = self.load_piece_imgs()
-            self.status_txt = None
 
             # coordinate tuples for blitting selected loc and generating moves
             self.src_coord = None
@@ -163,8 +159,7 @@ init python:
             # promotion piece type will be set by the buttons on select_promotion_screen
             self.promotion = None
 
-            # set to True at checkmate or stalemate
-            self.is_gameover = False
+            self.game_status = None
             # return to _return in script, could be chess.WHITE, chess.BLACK, or, None
             self.winner = None # None for stalemate
 
@@ -192,16 +187,7 @@ init python:
                                                 chess.square_rank(square))
                 render.place(self.legal_dst_img, x=square_coord[0], y=square_coord[1])
 
-            # update text
-            whoseturn_txt = Text('Whose turn: %s' %
-                ('White' if self.board.turn else 'Black'), 
-                color=COLOR_WHITE, size=TEXT_SIZE)
-            render.place(whoseturn_txt, 
-                x=TEXT_WHOSETURN_COORD[0], y=TEXT_WHOSETURN_COORD[1])
-
-            if self.status_txt:
-                render.place(self.status_txt, 
-                    x=TEXT_STATUS_COORD[0], y=TEXT_STATUS_COORD[1])
+            renpy.restart_interaction() # force refresh the screen
 
             return render
 
@@ -221,7 +207,7 @@ init python:
                 self.board.push(move)
                 renpy.redraw(self, 0) # redraw pieces
 
-                self.check_game_status()
+                self.check_game_status() # update self.game_status
                 return
 
             if 0 < x < config.screen_height and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
@@ -278,7 +264,6 @@ init python:
 
                         self.check_game_status()
 
-
         # helpers
         def load_piece_imgs(self):
             # white pieces represented as P, N, K, etc. and black p, n, k, etc.
@@ -323,40 +308,28 @@ init python:
             """
             # need is_checkmate and is_stalemate before is_check
             if self.board.is_checkmate():
-                self.status_txt = Text('Checkmate', 
-                    color=COLOR_WHITE, size=TEXT_SIZE)
+                self.game_status = CHECKMATE
                 renpy.sound.play(AUDIO_CHECKMATE)
-                renpy.redraw(self, 0)
-
                 # after a move, if it's white's turn, that means black has
                 # just moved and put white into checkmate, thus winner is black
                 # hence need to negate self.board.turn to get winner
                 renpy.notify('Checkmate! The winner is %s' % ('black' if self.board.turn else 'white'))
                 self.winner = not self.board.turn
-                self.is_gameover = True
                 return
 
             if self.board.is_stalemate():
-                self.status_txt = Text('Stalemate', 
-                    color=COLOR_WHITE, size=TEXT_SIZE)
+                self.game_status = STALEMATE
                 renpy.sound.play(AUDIO_STALEMATE)
-                renpy.redraw(self, 0)
-
                 renpy.notify('Stalemate')
-                self.winner = RETURN_DRAW
-                self.is_gameover = True
                 return
 
             # game resumes
             if self.board.is_check():
-                self.status_txt = Text('In Check', 
-                    color=COLOR_WHITE, size=TEXT_SIZE)
+                self.game_status = INCHECK
                 renpy.sound.play(AUDIO_CHECK)
-                renpy.redraw(self, 0)
 
             else:
-                self.status_txt = None
-                renpy.redraw(self, 0)
+                self.game_status = None
 
     # helper functions
     def coord_to_square(coord):
