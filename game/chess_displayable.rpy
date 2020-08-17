@@ -45,14 +45,10 @@ define STOCKFISH = 'bin/stockfish-11-64'
 define MAX_MOVETIME = 3000 # max think time in millisec
 define MAX_DEPTH = 20
 
+# endgame return code
+define RETURN_DRAW = -1 # chess.WHITE is True i.e. 1 and chess.BLACK is False i.e. 0
+
 # END DEF
-
-# BEGIN DEFAULT
-
-default fen = chess.STARTING_FEN
-default chess_displayble = ChessDisplayable(fen=fen)
-
-# END DEFAULT
 
 # BEGIN STYLE # TODO: modify this
 
@@ -67,25 +63,25 @@ style promotion_piece_text is text:
 
 # BEGIN SCREEN
 
-screen select_promotion_screen:
-    text "Select promotion piece type" xpos 25 ypos 45 color COLOR_WHITE size 16
-    vbox xalign 0.09 ypos 80:
-        textbutton "♜" action SetVariable('chess_displayble.promotion', chess.ROOK) style "promotion_piece"
-        textbutton "♝" action SetVariable('chess_displayble.promotion', chess.BISHOP) style "promotion_piece"
-        textbutton "♞" action SetVariable('chess_displayble.promotion', chess.KNIGHT) style "promotion_piece"
-        textbutton "♛" action SetVariable('chess_displayble.promotion', chess.QUEEN) style "promotion_piece"
+# screen select_promotion_screen:
+#     text "Select promotion piece type" xpos 25 ypos 45 color COLOR_WHITE size 16
+#     vbox xalign 0.09 ypos 80:
+#         textbutton "♜" action SetVariable('chess_displayable.promotion', chess.ROOK) style "promotion_piece"
+#         textbutton "♝" action SetVariable('chess_displayable.promotion', chess.BISHOP) style "promotion_piece"
+#         textbutton "♞" action SetVariable('chess_displayable.promotion', chess.KNIGHT) style "promotion_piece"
+#         textbutton "♛" action SetVariable('chess_displayable.promotion', chess.QUEEN) style "promotion_piece"
 
 screen chess:
-    default hover_displayble = HoverDisplayable()
-    default chess_displayble = ChessDisplayable(fen=fen, 
+    default hover_displayable = HoverDisplayable()
+    default chess_displayable = ChessDisplayable(fen=fen, 
         player_color=player_color, movetime=movetime, depth=depth)
     # TODO: programmatically define the chess board background as an Image obj
     add "bg chessboard" # the bg doesn't need to be redraw every time
-    add chess_displayble
-    add hover_displayble # hover loc over chesspieces
-    if chess_displayble.is_gameover:
-        timer 6.0 action Return(chess_displayble.winner)
-    use select_promotion_screen
+    add chess_displayable
+    add hover_displayable # hover loc over chesspieces
+    if chess_displayable.is_gameover:
+        timer 3.0 action Return(chess_displayable.winner)
+    # use select_promotion_screen
 
 # END SCREEN
 
@@ -202,12 +198,16 @@ init python:
             return render
 
         def event(self, ev, x, y, st):
+
             # skip GUI interaction for AI's turn in Player vs. AI mode
             if self.stockfish and self.board.turn != self.player_color:
                 self.stockfish.position(self.board)
                 move = self.stockfish.go(movetime=self.stockfish_movetime, 
                     depth=self.stockfish_depth)
                 move = move.bestmove
+                if not move:
+                    return
+
                 self.play_move_audio(move)
 
                 self.board.push(move)
@@ -313,7 +313,7 @@ init python:
             Check if is checkmate, in check, or stalemate
             and update status text display accordingly
             """
-            # need is_checkmate first b/c is_check implies is_checkmate
+            # need is_checkmate and is_stalemate before is_check
             if self.board.is_checkmate():
                 self.status_txt = Text('Checkmate', 
                     color=COLOR_WHITE, size=TEXT_SIZE)
@@ -326,27 +326,29 @@ init python:
                 renpy.notify('Checkmate! The winner is %s' % ('black' if self.board.turn else 'white'))
                 self.winner = not self.board.turn
                 self.is_gameover = True
-                raise renpy.IgnoreEvent()
+                return
 
-            elif self.board.is_check():
-                self.status_txt = Text('In Check', 
-                    color=COLOR_WHITE, size=TEXT_SIZE)
-                renpy.sound.play(AUDIO_CHECK)
-                renpy.redraw(self, 0)
-
-            elif self.board.is_stalemate():
+            if self.board.is_stalemate():
                 self.status_txt = Text('Stalemate', 
                     color=COLOR_WHITE, size=TEXT_SIZE)
                 renpy.sound.play(AUDIO_STALEMATE)
                 renpy.redraw(self, 0)
 
                 renpy.notify('Stalemate')
-                self.winner = None
+                self.winner = RETURN_DRAW
                 self.is_gameover = True
-                raise renpy.IgnoreEvent()
+                return
+
+            # game resumes
+            if self.board.is_check():
+                self.status_txt = Text('In Check', 
+                    color=COLOR_WHITE, size=TEXT_SIZE)
+                renpy.sound.play(AUDIO_CHECK)
+                renpy.redraw(self, 0)
 
             else:
                 self.status_txt = None
+                renpy.redraw(self, 0)
 
     # helper functions
     def coord_to_square(coord):
