@@ -32,7 +32,18 @@ define AUDIO_CHECK = 'audio/check.wav'
 define AUDIO_CHECKMATE = 'audio/checkmate.wav'
 define AUDIO_STALEMATE = 'audio/stalemate.wav'
 
-define STOCKFISH = 'bin/stockfish-11-64'
+# stockfish engine is OS-dependent
+if renpy.android:
+    define STOCKFISH = 'bin/stockfish-10-armv7' # 32 bit
+elif renpy.ios:
+    define STOCKFISH = 'bin/stockfish-11-64' # FIXME: this is for Mac
+elif renpy.windows:
+    # TODO: separate 32 vs. 64 bit
+    define STOCKFISH = 'bin/stockfish_20011801_x64.exe'
+elif renpy.linux: # XXX: check for linux must come before mac
+    define STOCKFISH = 'bin/stockfish_20011801_x64'
+elif renpy.mac:
+    define STOCKFISH = 'bin/stockfish-11-64'
 
 # stockfish params
 define MAX_MOVETIME = 3000 # max think time in millisec
