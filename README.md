@@ -39,7 +39,10 @@ Copy the image files `game/images/chesspieces` and `game/images/chessboard.png` 
 
 In your `script.rpy`, define the following configuration variables for the chess engine:
 
-- 
+- `fen`: the [Forsyth–Edwards Notation](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation) of the board
+- `player_color`: `None` for PvP. For PvC, `chess.WHITE` or `chess.BLACK`.
+- `movetime`: `None` for PvP. For PvC, between `0` and `MAX_MOVETIME = 3000` milliseconds.
+- `depth`: `None` for PvP. For PvC, between `0` and `MAX_DEPTH = 20`.
 
 To call the chess displayable screen:
 
