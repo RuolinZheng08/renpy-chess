@@ -10,9 +10,9 @@ define INDEX_MAX = 7
 define PROMOTION_RANK_WHITE = 6 # INDEX_MAX - 1
 define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
 
-define COLOR_HOVER = '#00ff0050'
-define COLOR_SELECTED = '#0a82ff88'
-define COLOR_LEGAL_DST = '#45c8ff50' # destination of a legal move
+define COLOR_HOVER = '#00ff0050' # green
+define COLOR_SELECTED = '#0a82ff88' # blue
+define COLOR_LEGAL_DST = '#45c8ff50' # blue, destination of a legal move
 define COLOR_WHITE = '#fff'
 
 define TEXT_SIZE = 26
@@ -32,7 +32,23 @@ define AUDIO_CHECK = 'audio/check.wav'
 define AUDIO_CHECKMATE = 'audio/checkmate.wav'
 define AUDIO_STALEMATE = 'audio/stalemate.wav'
 
-define STOCKFISH = 'bin/stockfish-11-64'
+# stockfish engine is OS-dependent
+if renpy.android:
+    define STOCKFISH = 'bin/stockfish-10-armv7' # 32 bit
+elif renpy.ios:
+    define STOCKFISH = 'bin/stockfish-11-64' # FIXME: this is for Mac
+elif renpy.windows:
+    python:
+        import struct
+        size = struct.calcsize("P")
+        if size == 32:
+            define STOCKFISH = 'bin/stockfish_20011801_32bit.exe'
+        elif size == 64:
+            define STOCKFISH = 'bin/stockfish_20011801_x64.exe'
+elif renpy.linux: # XXX: check for linux must come before mac
+    define STOCKFISH = 'bin/stockfish_20011801_x64'
+elif renpy.macintosh:
+    define STOCKFISH = 'bin/stockfish-11-64'
 
 # stockfish params
 define MAX_MOVETIME = 3000 # max think time in millisec
@@ -54,8 +70,8 @@ style game_status_text is text:
 style promotion_piece is button
 style promotion_piece_text is text:
     size 45
-    color gui.idle_color
-    hover_color gui.selected_color # hover color is hard to see
+    color '#aaaaaa' # gray
+    hover_color '#555555' # darker gray
     selected_color COLOR_WHITE
 
 # END STYLE
@@ -279,8 +295,9 @@ init python:
                         # the piece could be a promoting pawn
                         if self.has_promoting_piece(src_square):
                             self.show_promotion_ui = True
-                            PROMOTION = None
-
+                        else:
+                            self.show_promotion_ui = False
+                        PROMOTION = None
                         renpy.redraw(self, 0)
                         return
 
