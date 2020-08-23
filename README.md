@@ -2,7 +2,7 @@
 
 ## About
 
-This is a chess GUI built with [Ren'Py](http://renpy.org/), [python-chess](https://github.com/niklasf/python-chess), and [Stockfish](https://stockfishchess.org/) (for chess AI). You can use it as a standalone playable or integrate it as a minigame into a Ren'Py visual novel project. Read the [guide for integration](https://github.com/RuolinZheng08/renpy-chess-engine) below.
+This is a chess GUI built with the [Ren'Py](http://renpy.org/) Visual Novel Engine, [python-chess](https://github.com/niklasf/python-chess), and [Stockfish](https://stockfishchess.org/) (for chess AI). You can use it as a standalone playable or integrate it as a minigame into a Ren'Py visual novel project. Read the [guide for integration](https://github.com/RuolinZheng08/renpy-chess-engine) below.
 
 #### Gameplay Example: Fool's Mate
 <img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/foolsmate.gif" alt="Gameplay Example" width=600>
@@ -11,8 +11,8 @@ This is a chess GUI built with [Ren'Py](http://renpy.org/), [python-chess](https
 
 |   | Pros  | Cons  |
 |---|---|---|
-| [Ren'Py Chess 1.0](https://github.com/RuolinZheng08/renpy-chess-engine)  |   |   |
-| [Ren'Py Chess 2.0](https://github.com/RuolinZheng08/renpy-chess)  |   |   |
+| [Ren'Py Chess 1.0](https://github.com/RuolinZheng08/renpy-chess-engine)  | <ul><li>Has no Python package dependency hence supports any OS: Windows, Mac, Linux, Android, iOS, and even Web browser-play</li></ul> | <ul><li>Does not support en passant, castling, or promotion</li> <li>Player can only play as White in Player vs. Computer</li> <li>Uses a chess AI of minimal implementation with no support for customizing the strength of the AI</li></ul>   |
+| [Ren'Py Chess 2.0](https://github.com/RuolinZheng08/renpy-chess)  | <ul><li>Has full support for en passant and castling, plus a special UI for promotion</li> <li>Uses Stockfish and supports customization of the strength (thinking time, depth) of the chess AI</li></ul>  | <ul><li>Only tested on Mac. If you are on other OS and encounter a problem, please submit a GitHub issue</li></ul>  |
 
 ## Gameplay
 
