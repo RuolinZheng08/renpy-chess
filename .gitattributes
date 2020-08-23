@@ -1,1 +1,3 @@
 game/python-packages/* linguistic-vendored
+game/python-packages/chess/* linguistic-vendored
+game/python-packages/concurrent/* linguistic-vendored
