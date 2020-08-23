@@ -89,6 +89,9 @@ default PROMOTION = None
 # BEGIN SCREEN
 
 screen chess:
+    
+    modal True
+
     default hover_displayable = HoverDisplayable()
     default chess_displayable = ChessDisplayable(fen=fen, 
         player_color=player_color, movetime=movetime, depth=depth)
