@@ -10,9 +10,9 @@ define INDEX_MAX = 7
 define PROMOTION_RANK_WHITE = 6 # INDEX_MAX - 1
 define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
 
-define COLOR_HOVER = '#00ff0050'
-define COLOR_SELECTED = '#0a82ff88'
-define COLOR_LEGAL_DST = '#45c8ff50' # destination of a legal move
+define COLOR_HOVER = '#00ff0050' # green
+define COLOR_SELECTED = '#0a82ff88' # blue
+define COLOR_LEGAL_DST = '#45c8ff50' # blue, destination of a legal move
 define COLOR_WHITE = '#fff'
 
 define TEXT_SIZE = 26
@@ -42,7 +42,7 @@ elif renpy.windows:
     define STOCKFISH = 'bin/stockfish_20011801_x64.exe'
 elif renpy.linux: # XXX: check for linux must come before mac
     define STOCKFISH = 'bin/stockfish_20011801_x64'
-elif renpy.mac:
+elif renpy.macintosh:
     define STOCKFISH = 'bin/stockfish-11-64'
 
 # stockfish params
@@ -65,8 +65,8 @@ style game_status_text is text:
 style promotion_piece is button
 style promotion_piece_text is text:
     size 45
-    color gui.idle_color
-    hover_color gui.selected_color # hover color is hard to see
+    color '#aaaaaa' # gray
+    hover_color '#555555' # darker gray
     selected_color COLOR_WHITE
 
 # END STYLE
@@ -290,8 +290,9 @@ init python:
                         # the piece could be a promoting pawn
                         if self.has_promoting_piece(src_square):
                             self.show_promotion_ui = True
-                            PROMOTION = None
-
+                        else:
+                            self.show_promotion_ui = False
+                        PROMOTION = None
                         renpy.redraw(self, 0)
                         return
 
