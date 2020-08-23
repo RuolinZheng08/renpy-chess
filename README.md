@@ -123,4 +123,4 @@ define AUDIO_STALEMATE = 'audio/stalemate.wav'
 ```
 
 ## Continuous Development
-The project is under active maintanence and you can view its development status on this public [Trello board](https://trello.com/b/ip9YLSPa/renpy-chess). Please feel free to submit a GitHub issue for bugs and feature requests. The source code is expected to be used in a Ren'Py kinetic novel game, [The Wind at Dawn](https://madeleine-chai.itch.io/the-wind-at-dawn).
+The project is under active maintenance and you can view its development status on this public [Trello board](https://trello.com/b/ip9YLSPa/renpy-chess). Please feel free to submit a GitHub issue for bugs and feature requests. The source code is expected to be used in a Ren'Py kinetic novel game, [The Wind at Dawn](https://madeleine-chai.itch.io/the-wind-at-dawn).
