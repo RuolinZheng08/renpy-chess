@@ -38,8 +38,13 @@ if renpy.android:
 elif renpy.ios:
     define STOCKFISH = 'bin/stockfish-11-64' # FIXME: this is for Mac
 elif renpy.windows:
-    # TODO: separate 32 vs. 64 bit
-    define STOCKFISH = 'bin/stockfish_20011801_x64.exe'
+    python:
+        import struct
+        size = struct.calcsize("P")
+        if size == 32:
+            define STOCKFISH = 'bin/stockfish_20011801_32bit.exe'
+        elif size == 64:
+            define STOCKFISH = 'bin/stockfish_20011801_x64.exe'
 elif renpy.linux: # XXX: check for linux must come before mac
     define STOCKFISH = 'bin/stockfish_20011801_x64'
 elif renpy.macintosh:
