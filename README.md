@@ -32,3 +32,92 @@ Click on a piece and all of its available moves will be highlighted in blue. Cli
 ## Guide for Integrating into a Ren'Py Project
 
 The core class is a [Ren'Py Creator-Defined Displayable](https://www.renpy.org/doc/html/udd.html) named `ChessDisplayable` inside `game/chess_displayable.rpy`.
+
+### Instructions
+
+Copy the image files `game/images/chesspieces` and `game/images/chessboard.png` and the script file `game/chess_displayable.rpy` into your `game/` directory.
+
+In your `script.rpy`, define the following configuration variables for the chess engine:
+
+- 
+
+To call the chess displayable screen:
+
+```renpy
+window hide
+$ quick_menu = False
+
+call screen chess
+
+$ quick_menu = True
+window show
+```
+
+A complete example is as follows. Also see the `script.rpy` file in this repo.
+
+```renpy
+define e = Character("Eileen")
+$ fen = chess.STARTING_FEN
+
+menu:
+    "Please select the game mode."
+
+    "Player vs. Player":
+        $ player_color = None # None for Player vs. Player
+        $ movetime = None
+        $ depth = None
+
+    "Player vs. Computer":
+        $ movetime = 2000
+        $ depth = 10
+
+        menu:
+            "Please select Player color"
+
+            "White":
+                $ player_color = chess.WHITE
+
+            "Black":
+                $ player_color = chess.BLACK
+
+window hide
+$ quick_menu = False
+
+call screen chess
+
+$ quick_menu = True
+window show
+
+if _return == STALEMATE:
+    e 'The game ended in a draw.'
+else:
+    $ winner = 'White' if _return == chess.WHITE else 'Black'
+    e 'The winner is [winner].'
+    if _return == player_color:
+        e 'Congratulations, player!'
+    elif _return is not None:
+        e 'Better luck next time, player.'
+```
+
+### Customizations for Different Screen Sizes, Colors, Styles, and Audios
+
+Override the defaults in `chess_displayable.rpy` and replace the default chess piece and chess board images, or, audio files.
+
+```renpy
+define LOC_LEN = 90 # length of one side of a loc
+
+define COLOR_HOVER = '#00ff0050' # green
+define COLOR_SELECTED = '#0a82ff88' # blue
+define COLOR_LEGAL_DST = '#45c8ff50' # blue, destination of a legal move
+define COLOR_WHITE = '#fff'
+
+define AUDIO_MOVE = 'audio/move.wav'
+define AUDIO_CAPTURE = 'audio/capture.wav'
+define AUDIO_PROMOTION = 'audio/promotion.wav'
+define AUDIO_CHECK = 'audio/check.wav'
+define AUDIO_CHECKMATE = 'audio/checkmate.wav'
+define AUDIO_STALEMATE = 'audio/stalemate.wav'
+```
+
+## Continuous Development
+The project is under active maintanence and you can view its development status on this public [Trello board](https://trello.com/b/ip9YLSPa/renpy-chess). Please feel free to submit a GitHub issue for bugs and feature requests. The source code is expected to be used in a Ren'Py kinetic novel game, [The Wind at Dawn](https://madeleine-chai.itch.io/the-wind-at-dawn).
