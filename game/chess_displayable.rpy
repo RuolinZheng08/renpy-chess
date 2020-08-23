@@ -42,9 +42,13 @@ elif renpy.windows:
         import struct
         size = struct.calcsize("P")
         if size == 32:
-            define STOCKFISH = 'bin/stockfish_20011801_32bit.exe'
+            is_32_bit = True
         elif size == 64:
-            define STOCKFISH = 'bin/stockfish_20011801_x64.exe'
+            is_32_bit = False
+    if is_32_bit:
+        define STOCKFISH = 'bin/stockfish_20011801_32bit.exe'
+    else:
+        define STOCKFISH = 'bin/stockfish_20011801_x64.exe'
 elif renpy.linux: # XXX: check for linux must come before mac
     define STOCKFISH = 'bin/stockfish_20011801_x64'
 elif renpy.macintosh:
