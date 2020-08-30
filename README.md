@@ -11,8 +11,8 @@ This is a chess GUI built with the [Ren'Py](http://renpy.org/) Visual Novel Engi
 
 |   | Pros  | Cons  |
 |---|---|---|
-| [Ren'Py Chess 1.0](https://github.com/RuolinZheng08/renpy-chess-engine)  | <ul><li>Has no Python package dependency hence supports any OS: Windows, Mac, Linux, Android, iOS, and even Web browser-play</li></ul> | <ul><li>Does not support en passant, castling, or promotion</li> <li>Player can only play as White in Player vs. Computer</li> <li>Uses a chess AI of minimal implementation with no support for customizing the strength of the AI</li></ul>   |
-| [Ren'Py Chess 2.0](https://github.com/RuolinZheng08/renpy-chess)  | <ul><li>Has full support for en passant and castling, plus a special UI for promotion</li> <li>Uses Stockfish and supports customization of the strength (thinking time, depth) of the chess AI</li></ul>  | <ul><li>Only tested on Mac. If you are on other OS and encounter a problem, please submit a GitHub issue</li></ul>  |
+| [Ren'Py Chess 1.0](https://github.com/RuolinZheng08/renpy-chess-engine)  | <ul><li>Has no Python package dependency hence supports any OS: Windows, Mac, Linux, Android, iOS, and even Web browser-play</li></ul> | <ul><li>Does not support en passant, castling, or promotion</li> <li>Does not support claiming a draw for the threefold repetition or the fifty-move rule</li> <li>Player can only play as White in Player vs. Computer</li> <li>Uses a chess AI of minimal implementation with no support for customizing the strength of the AI</li></ul>   |
+| [Ren'Py Chess 2.0](https://github.com/RuolinZheng08/renpy-chess)  | <ul><li>Has full support for en passant and castling, plus a special UI for promotion</li> <li>Has full support and a special UI for claiming a draw for the threefold repetition or the fifty-move rule</li> <li>Uses Stockfish and supports customization of the strength (thinking time, depth) of the chess AI</li></ul>  | <ul><li>Only tested on Mac. Does not support iOS or Web. If you are on other OS (Windows, Linux, Android) and encounter a problem, please submit a GitHub issue</li> </ul>  |
 
 ## Gameplay
 
@@ -28,6 +28,10 @@ Click on a piece and all of its available moves will be highlighted in blue. Cli
 
 #### Player vs. Computer (Stockfish)
 <img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/pvc.gif" alt="Play vs Computer" width=600>
+
+#### Threefold Repetition: UI for Claiming a Draw
+(Also shows a similar UI choice screen if the fifty-move rule is in effect)
+<img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/threefold.gif" alt="Threefold Repetition" width=600>
 
 ## Guide for Integrating into a Ren'Py Project
 
