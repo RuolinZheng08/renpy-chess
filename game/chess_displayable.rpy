@@ -60,8 +60,9 @@ define MAX_DEPTH = 20
 
 # status code enum
 define CHECKMATE = 1 # chess.WHITE is True i.e. 1 and chess.BLACK is False i.e. 0
-define STALEMATE = 2 # also endgame _return code
+define STALEMATE = 2
 define INCHECK = 3
+define DRAW = 4 # endgame _return code for stalemate, threefold, fifty-move
 
 # END DEF
 
@@ -81,7 +82,7 @@ style promotion_piece_text is text:
 # END STYLE
 
 # for promotion UI
-# calling SetVariable('chess_displayable.promotion', val) will cause
+# XXX: calling SetVariable('chess_displayable.promotion', val) will cause
 # renpy to make a variable literally named chess_displayable.promotion
 # instead of assigning it to a class member
 default PROMOTION = None
@@ -119,9 +120,10 @@ screen chess:
         add chess_displayable
         add hover_displayable # hover loc over chesspieces
         if chess_displayable.game_status == CHECKMATE:
+            # use a timer so the player can see the screen once again
             timer 4.0 action Return(chess_displayable.winner)
         elif chess_displayable.game_status == STALEMATE:
-            timer 4.0 action Return(STALEMATE)
+            timer 4.0 action Return(DRAW)
 
     # right panel for promotion selection
     showif chess_displayable.show_promotion_ui:
@@ -256,6 +258,20 @@ init python:
                 self.check_game_status() # update self.game_status
                 return
 
+            # XXX: in developer mode only, open up the UI for promotion or for claiming draw
+            # in threefold repetition or fifty moves rule
+            # https://en.wikipedia.org/wiki/Threefold_repetition
+            # https://en.wikipedia.org/wiki/Fifty-move_rule
+            # p: promotion, d: draw
+            if config.developer:
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_p]: # promotion
+                    self.show_promotion_ui = not self.show_promotion_ui # toggle show or hide
+                    renpy.restart_interaction()
+                elif keys[pygame.K_c]: # claim draw
+                    self.show_claim_draw_ui() # no need to specify if it's threefold or fifty-move
+
+            # regular gameplay interaction
             if 0 < x < config.screen_height and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
 
                 global PROMOTION
@@ -311,7 +327,6 @@ init python:
                     # move construction
                     move = chess.Move(src_square, dst_square, promotion=PROMOTION)
                     if self.show_promotion_ui and not move.promotion:
-                        # TODO: show/hide UI for selecting promotion
                         renpy.notify('Please select a piece type to promote to')
 
                     if move in self.board.legal_moves:
@@ -385,6 +400,12 @@ init python:
                 renpy.notify('Stalemate')
                 return
 
+            # prompt player to claim draw if threefold or fifty-move occurs
+            if self.board.can_claim_threefold_repetition():
+                self.show_claim_draw_ui(reason="Threefold repetition rule: " )
+            if self.board.can_claim_fifty_moves():
+                self.show_claim_draw_ui(reason="Fifty moves rule: " )
+
             # game resumes
             if self.board.is_check():
                 self.game_status = INCHECK
@@ -392,6 +413,16 @@ init python:
 
             else:
                 self.game_status = None
+
+        def show_claim_draw_ui(self, reason=""):
+            """
+            reason: a string indicating the reason to claim the draw, directly prepended to message
+            """
+            renpy.show_screen("confirm", 
+                message=reason + "Would you like to claim draw?", 
+                yes_action=[Hide("confirm"), Return(DRAW)], 
+                no_action=Hide("confirm"))
+            renpy.restart_interaction()
 
     # helper functions
     def coord_to_square(coord):
