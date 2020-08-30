@@ -41,7 +41,7 @@ label start:
     $ quick_menu = True
     window show
 
-    if _return == STALEMATE:
+    if _return == DRAW:
         e 'The game ended in a draw.'
     else:
         $ winner = 'White' if _return == chess.WHITE else 'Black'
