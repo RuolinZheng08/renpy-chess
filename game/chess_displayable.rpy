@@ -262,15 +262,14 @@ init python:
             # in threefold repetition or fifty moves rule
             # https://en.wikipedia.org/wiki/Threefold_repetition
             # https://en.wikipedia.org/wiki/Fifty-move_rule
-            # p: promotion, d: draw, u: undo/hide all
+            # p: promotion, d: draw
             if config.developer:
                 keys = pygame.key.get_pressed()
                 if keys[pygame.K_p]: # promotion
-                    self.show_promotion_ui = True
+                    self.show_promotion_ui = not self.show_promotion_ui # toggle show or hide
+                    renpy.restart_interaction()
                 elif keys[pygame.K_c]: # claim draw
                     self.show_claim_draw_ui() # no need to specify if it's threefold or fifty-move
-                elif keys[pygame.K_u]: # undo
-                    self.show_promotion_ui = False
 
             # regular gameplay interaction
             if 0 < x < config.screen_height and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
