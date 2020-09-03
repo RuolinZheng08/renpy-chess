@@ -128,15 +128,15 @@ init python:
 
     # stockfish engine is OS-dependent
     if renpy.android:
-        define STOCKFISH = 'bin/stockfish-10-armv7' # 32 bit
+        STOCKFISH = 'bin/stockfish-10-armv7' # 32 bit
     elif renpy.ios:
-        define STOCKFISH = 'bin/stockfish-11-64' # FIXME: no iOS stockfish available
+        STOCKFISH = 'bin/stockfish-11-64' # FIXME: no iOS stockfish available
     elif renpy.linux:
-        define STOCKFISH = 'bin/stockfish_20011801_x64'
+        STOCKFISH = 'bin/stockfish_20011801_x64'
     elif renpy.macintosh:
-        define STOCKFISH = 'bin/stockfish-11-64'
+        STOCKFISH = 'bin/stockfish-11-64'
     elif renpy.windows:
-        define STOCKFISH = 'bin/stockfish_20011801_x64.exe'
+        STOCKFISH = 'bin/stockfish_20011801_x64.exe'
     
     class HoverDisplayable(renpy.Displayable):
         """
