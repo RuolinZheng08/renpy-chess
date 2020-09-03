@@ -32,28 +32,6 @@ define AUDIO_CHECK = 'audio/check.wav'
 define AUDIO_CHECKMATE = 'audio/checkmate.wav'
 define AUDIO_STALEMATE = 'audio/stalemate.wav'
 
-# stockfish engine is OS-dependent
-if renpy.android:
-    define STOCKFISH = 'bin/stockfish-10-armv7' # 32 bit
-elif renpy.ios:
-    define STOCKFISH = 'bin/stockfish-11-64' # FIXME: this is for Mac
-elif renpy.windows:
-    python:
-        import struct
-        size = struct.calcsize("P")
-        if size == 32:
-            is_32_bit = True
-        elif size == 64:
-            is_32_bit = False
-    if is_32_bit:
-        define STOCKFISH = 'bin/stockfish_20011801_32bit.exe'
-    else:
-        define STOCKFISH = 'bin/stockfish_20011801_x64.exe'
-elif renpy.linux: # XXX: check for linux must come before mac
-    define STOCKFISH = 'bin/stockfish_20011801_x64'
-elif renpy.macintosh:
-    define STOCKFISH = 'bin/stockfish-11-64'
-
 # stockfish params
 define MAX_MOVETIME = 3000 # max think time in millisec
 define MAX_DEPTH = 20
@@ -147,6 +125,18 @@ init python:
     import chess.uci
     import pygame
     import os
+
+    # stockfish engine is OS-dependent
+    if renpy.android:
+        define STOCKFISH = 'bin/stockfish-10-armv7' # 32 bit
+    elif renpy.ios:
+        define STOCKFISH = 'bin/stockfish-11-64' # FIXME: no iOS stockfish available
+    elif renpy.linux:
+        define STOCKFISH = 'bin/stockfish_20011801_x64'
+    elif renpy.macintosh:
+        define STOCKFISH = 'bin/stockfish-11-64'
+    elif renpy.windows:
+        define STOCKFISH = 'bin/stockfish_20011801_x64.exe'
     
     class HoverDisplayable(renpy.Displayable):
         """
@@ -187,7 +177,19 @@ init python:
             if player_color is not None:
                 self.player_color = player_color
                 stockfish_path = os.path.abspath(os.path.join(config.basedir, 'game', STOCKFISH))
-                self.stockfish = chess.uci.popen_engine(stockfish_path)
+
+                startupinfo = None
+                # stop stockfish from opening up shell
+                # https://stackoverflow.com/a/63538680
+                if renpy.windows:
+                    import subprocess
+                    startupinfo = subprocess.STARTUPINFO()
+                    startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
+
+                self.stockfish = chess.uci.popen_engine(stockfish_path, startupinfo=startupinfo)
+
+                self.stockfish.uci()
+
                 self.stockfish.position(self.board)
                 self.stockfish_movetime = movetime if movetime <= MAX_MOVETIME else MAX_MOVETIME
                 self.stockfish_depth = depth if depth <= MAX_DEPTH else MAX_DEPTH
