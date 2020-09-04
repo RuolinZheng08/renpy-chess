@@ -17,7 +17,6 @@ label start:
 
         "Player vs. Player":
             $ player_color = None # None for Player vs. Player
-            $ bottom_color = None # white at the bottom of the screen by default
             $ movetime = None
             $ depth = None
 
@@ -30,12 +29,10 @@ label start:
 
                 "White":
                     $ player_color = chess.WHITE
-                    $ bottom_color = chess.WHITE
 
                 "Black":
                     # board view flipped so that the player's color is at the bottom of the screen
                     $ player_color = chess.BLACK
-                    $ bottom_color = chess.BLACK
 
     window hide
     $ quick_menu = False

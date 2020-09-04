@@ -75,7 +75,7 @@ screen chess:
 
     default hover_displayable = HoverDisplayable()
     default chess_displayable = ChessDisplayable(fen=fen, 
-        player_color=player_color, bottom_color=bottom_color, movetime=movetime, depth=depth)
+        player_color=player_color, movetime=movetime, depth=depth)
 
     add Solid('#000') # black
 
@@ -183,20 +183,21 @@ init python:
         Else, use Player vs. Stockfish mode
         player_color: None, chess.WHITE, chess.BLACK
         """
-        def __init__(self, fen=chess.STARTING_FEN, player_color=None, bottom_color=None, movetime=2000, depth=10):
+        def __init__(self, fen=chess.STARTING_FEN, player_color=None, movetime=2000, depth=10):
             super(ChessDisplayable, self).__init__()
 
             self.board = chess.Board(fen=fen)
 
-            # for flipping board view
-            if bottom_color is None:
-                self.bottom_color = chess.WHITE # white by default
-            else:
-                self.bottom_color = bottom_color
-            self.has_flipped_board = False
+            self.has_flipped_board = False # for flipping board view
 
             self.player_color = None
-            if player_color is not None:
+            if player_color is None: # player vs player
+                self.bottom_color = chess.WHITE # white on the bottom of screen by default
+                self.stockfish = None # no AI
+
+            else: # player vs computer
+                self.bottom_color = player_color # player color on the bottom
+
                 self.player_color = player_color
                 stockfish_path = os.path.abspath(os.path.join(config.basedir, 'game', STOCKFISH))
 
@@ -215,8 +216,6 @@ init python:
                 self.stockfish.position(self.board)
                 self.stockfish_movetime = movetime if movetime <= MAX_MOVETIME else MAX_MOVETIME
                 self.stockfish_depth = depth if depth <= MAX_DEPTH else MAX_DEPTH
-            else:
-                self.stockfish = None
 
             # displayables
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
