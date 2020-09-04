@@ -46,13 +46,13 @@ label start:
     window show
 
     if _return == DRAW:
-        e 'The game ended in a draw.'
+        e "The game ended in a draw."
     else:
-        $ winner = 'White' if _return == chess.WHITE else 'Black'
-        e 'The winner is [winner].'
+        $ winner = "White" if _return == chess.WHITE else "Black"
+        e "The winner is [winner]."
         if _return == player_color:
-            e 'Congratulations, player!'
+            e "Congratulations, player!"
         elif _return is not None:
-            e 'Better luck next time, player.'
+            e "Better luck next time, player."
 
     return
