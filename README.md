@@ -18,7 +18,10 @@ This is a chess GUI built with the [Ren'Py](http://renpy.org/) Visual Novel Engi
 
 The game supports **Player vs. Player** and **Player vs. Computer**. In PvC, player can choose to play as either Black or White.
 
-Click on a piece and all of its available moves will be highlighted in blue. Click on any of the legal destination squares to make a move.
+Click on a piece and all of its available moves will be highlighted in blue. Click on any of the legal destination squares to make a move. Click `Flip board view` to flip the view, with White on the bottom by default.
+
+#### Flip Board View
+<img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/flip_board.gif" alt="Flip Board" width=600>
 
 #### Promotion UI
 <img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/promotion.gif" alt="Promotion" width=600>
