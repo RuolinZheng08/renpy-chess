@@ -32,6 +32,7 @@ define AUDIO_PROMOTION = 'audio/promotion.wav'
 define AUDIO_CHECK = 'audio/check.wav'
 define AUDIO_CHECKMATE = 'audio/checkmate.wav'
 define AUDIO_DRAW = 'audio/draw.wav' # used for stalemate, threefold, fifty-move
+define AUDIO_FLIP_BOARD = 'audio/flip_board.wav'
 
 # stockfish params
 define MAX_MOVETIME = 3000 # max think time in millisec
@@ -74,32 +75,33 @@ screen chess:
 
     default hover_displayable = HoverDisplayable()
     default chess_displayable = ChessDisplayable(fen=fen, 
-        player_color=player_color, movetime=movetime, depth=depth)
+        player_color=player_color, bottom_color=bottom_color, movetime=movetime, depth=depth)
 
-    add Solid("#000") # black
+    add Solid('#000') # black
 
     # left top panel for diplaying whoseturn text
     fixed xpos 20 ypos 80 spacing 40:
         vbox:
             showif chess_displayable.board.turn == chess.WHITE:
-                text "Whose turn: White" style "game_status_text"
+                text 'Whose turn: White' style 'game_status_text'
             else:
-                text "Whose turn: Black" style "game_status_text"
+                text 'Whose turn: Black' style 'game_status_text'
             
             showif chess_displayable.game_status == CHECKMATE:
-                text "Checkmate" style "game_status_text"
+                text 'Checkmate' style 'game_status_text'
             elif chess_displayable.game_status == STALEMATE:
-                text "Stalemate" style "game_status_text"
+                text 'Stalemate' style 'game_status_text'
             elif chess_displayable.game_status == INCHECK:
-                text "In Check" style "game_status_text"
+                text 'In Check' style 'game_status_text'
     # left bottom
     fixed xpos 60 ypos 600 spacing 10:
         vbox:
-            text "Flip board view" color COLOR_WHITE xalign 0.5
-            textbutton "↑↓":
-                action [ToggleField(chess_displayable, 'bottom'),
-                        SetField(chess_displayable, 'restart_interaction', True)]
-                style "flip_board" xalign 0.5
+            text 'Flip board view' color COLOR_WHITE xalign 0.5
+            textbutton '↑↓':
+                action [Play('sound', AUDIO_FLIP_BOARD),
+                ToggleField(chess_displayable, 'bottom_color'),
+                SetField(chess_displayable, 'has_flipped_board', True)]
+                style 'flip_board' xalign 0.5
 
     # middle panel for chess displayable
     fixed xpos 280:
@@ -114,17 +116,17 @@ screen chess:
 
     # right panel for promotion selection
     showif chess_displayable.show_promotion_ui:
-        text "Select promotion piece type" xpos 1010 ypos 180 color COLOR_WHITE size 18
+        text 'Select promotion piece type' xpos 1010 ypos 180 color COLOR_WHITE size 18
         vbox xalign 0.9 yalign 0.5 spacing 20:
             null height 40
-            textbutton "♜":
-                action SetField(chess_displayable, 'promotion', chess.ROOK)style "promotion_piece"
-            textbutton "♝":
-                action SetField(chess_displayable, 'promotion', chess.BISHOP) style "promotion_piece"
-            textbutton "♞":
-                action SetField(chess_displayable, 'promotion', chess.KNIGHT) style "promotion_piece"
-            textbutton "♛":
-                action SetField(chess_displayable, 'promotion', chess.QUEEN) style "promotion_piece"
+            textbutton '♜':
+                action SetField(chess_displayable, 'promotion', chess.ROOK) style 'promotion_piece'
+            textbutton '♝':
+                action SetField(chess_displayable, 'promotion', chess.BISHOP) style 'promotion_piece'
+            textbutton '♞':
+                action SetField(chess_displayable, 'promotion', chess.KNIGHT) style 'promotion_piece'
+            textbutton '♛':
+                action SetField(chess_displayable, 'promotion', chess.QUEEN) style 'promotion_piece'
 
 # END SCREEN
 
@@ -181,10 +183,17 @@ init python:
         Else, use Player vs. Stockfish mode
         player_color: None, chess.WHITE, chess.BLACK
         """
-        def __init__(self, fen=chess.STARTING_FEN, player_color=None, movetime=2000, depth=10):
+        def __init__(self, fen=chess.STARTING_FEN, player_color=None, bottom_color=None, movetime=2000, depth=10):
             super(ChessDisplayable, self).__init__()
 
             self.board = chess.Board(fen=fen)
+
+            # for flipping board view
+            if bottom_color is None:
+                self.bottom_color = chess.WHITE # white by default
+            else:
+                self.bottom_color = bottom_color
+            self.has_flipped_board = False
 
             self.player_color = None
             if player_color is not None:
@@ -223,10 +232,6 @@ init python:
             self.show_promotion_ui = False
             self.promotion = None
 
-            # for flipping board
-            self.bottom = chess.WHITE
-            self.restart_interaction = False
-
             self.game_status = None
             # return to _return in script, could be chess.WHITE, chess.BLACK, or, None
             self.winner = None # None for stalemate
@@ -240,7 +245,7 @@ init python:
                     piece_img = self.piece_imgs[piece.symbol()]
                     piece_coord = indices_to_coord(chess.square_file(square),
                                                     chess.square_rank(square),
-                                                    bottom=self.bottom)
+                                                    bottom_color=self.bottom_color)
                     render.place(piece_img, 
                         x=piece_coord[0], y=piece_coord[1])
 
@@ -254,7 +259,7 @@ init python:
             for square in self.legal_dsts:
                 square_coord = indices_to_coord(chess.square_file(square),
                                                 chess.square_rank(square),
-                                                bottom=self.bottom)
+                                                bottom_color=self.bottom_color)
                 render.place(self.legal_dst_img, x=square_coord[0], y=square_coord[1])
 
             renpy.restart_interaction() # force refresh the screen
@@ -294,8 +299,8 @@ init python:
                     self.show_claim_draw_ui() # no need to specify if it's threefold or fifty-move
 
             # set by the flip board button
-            if self.restart_interaction:
-                self.restart_interaction = False
+            if self.has_flipped_board:
+                self.has_flipped_board = False
                 # reset any selected piece
                 self.src_coord = None
                 self.legal_dsts = []
@@ -308,7 +313,7 @@ init python:
                 # first click, check if loc is selectable
                 if self.src_coord is None:
                     src_coord = round_coord(x, y)
-                    src_square = coord_to_square(src_coord, bottom=self.bottom)
+                    src_square = coord_to_square(src_coord, bottom_color=self.bottom_color)
                     # redraw if there is a piece of the current player's color on square
                     piece = self.board.piece_at(src_square)
                     if piece and piece.color == self.board.turn:
@@ -326,8 +331,8 @@ init python:
                 # second click, check if should deselect
                 else:
                     dst_coord = round_coord(x, y)
-                    dst_square = coord_to_square(dst_coord, bottom=self.bottom)
-                    src_square = coord_to_square(self.src_coord, bottom=self.bottom)
+                    dst_square = coord_to_square(dst_coord, bottom_color=self.bottom_color)
+                    src_square = coord_to_square(self.src_coord, bottom_color=self.bottom_color)
 
                     # if player selects the same piece, deselect
                     if dst_square == src_square:
@@ -431,9 +436,9 @@ init python:
 
             # prompt player to claim draw if threefold or fifty-move occurs
             if self.board.can_claim_threefold_repetition():
-                self.show_claim_draw_ui(reason="Threefold repetition rule: " )
+                self.show_claim_draw_ui(reason='Threefold repetition rule: ')
             if self.board.can_claim_fifty_moves():
-                self.show_claim_draw_ui(reason="Fifty moves rule: " )
+                self.show_claim_draw_ui(reason='Fifty moves rule: ')
 
             # game resumes
             if self.board.is_check():
@@ -443,37 +448,37 @@ init python:
             else:
                 self.game_status = None
 
-        def show_claim_draw_ui(self, reason=""):
+        def show_claim_draw_ui(self, reason=''):
             """
             reason: a string indicating the reason to claim the draw, directly prepended to message
             """
-            renpy.show_screen("confirm", 
-                message=reason + "Would you like to claim draw?", 
-                yes_action=[Hide("confirm"), Play("sound", AUDIO_DRAW), Return(DRAW)], 
-                no_action=Hide("confirm"))
+            renpy.show_screen('confirm', 
+                message=reason + 'Would you like to claim draw?', 
+                yes_action=[Hide('confirm'), Play("sound", AUDIO_DRAW), Return(DRAW)], 
+                no_action=Hide('confirm'))
             renpy.restart_interaction()
 
     # helper functions
-    def coord_to_square(coord, bottom=chess.WHITE):
+    def coord_to_square(coord, bottom_color=chess.WHITE):
         """
-        bottom: if chess.BLACK, flip the coordinate calculation
+        bottom_color: if chess.BLACK, flip the coordinate calculation
         """
         x, y = coord
-        if bottom == chess.WHITE:
+        if bottom_color == chess.WHITE:
             file_idx = x / LOC_LEN
             rank_idx = INDEX_MAX - (y / LOC_LEN)
-        else: # black on bottom
+        else: # black on bottom_color
             file_idx = INDEX_MAX - x / LOC_LEN
             rank_idx = y / LOC_LEN
         square = chess.square(file_idx, rank_idx)
         return square
 
-    def indices_to_coord(file_idx, rank_idx, bottom=chess.WHITE):
+    def indices_to_coord(file_idx, rank_idx, bottom_color=chess.WHITE):
         assert INDEX_MIN <= file_idx <= INDEX_MAX and INDEX_MIN <= file_idx <= INDEX_MAX
-        if bottom == chess.WHITE:
+        if bottom_color == chess.WHITE:
             x = LOC_LEN * file_idx
             y = LOC_LEN * (INDEX_MAX - rank_idx)
-        else: # black on bottom
+        else: # black on bottom_color
             x = LOC_LEN * (INDEX_MAX - file_idx)
             y = LOC_LEN * rank_idx
         return (x, y)
