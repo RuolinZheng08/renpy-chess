@@ -16,6 +16,7 @@ define COLOR_LEGAL_DST = '#45c8ff50' # blue, destination of a legal move
 define COLOR_WHITE = '#fff'
 
 define TEXT_SIZE = 26
+define TEXT_BUTTON_SIZE = 45 # promotion piece and flip-board arrow button
 define TEXT_WHOSETURN_COORD = (-260, 40)
 define TEXT_STATUS_COORD = (-260, 80)
 
@@ -30,7 +31,7 @@ define AUDIO_CAPTURE = 'audio/capture.wav'
 define AUDIO_PROMOTION = 'audio/promotion.wav'
 define AUDIO_CHECK = 'audio/check.wav'
 define AUDIO_CHECKMATE = 'audio/checkmate.wav'
-define AUDIO_STALEMATE = 'audio/stalemate.wav'
+define AUDIO_DRAW = 'audio/draw.wav' # used for stalemate, threefold, fifty-move
 
 # stockfish params
 define MAX_MOVETIME = 3000 # max think time in millisec
@@ -52,18 +53,18 @@ style game_status_text is text:
 
 style promotion_piece is button
 style promotion_piece_text is text:
-    size 45
+    size TEXT_BUTTON_SIZE
     color '#aaaaaa' # gray
     hover_color '#555555' # darker gray
     selected_color COLOR_WHITE
 
-# END STYLE
+style flip_board is button
+style flip_board_text is text:
+    size TEXT_BUTTON_SIZE
+    color '#aaaaaa' # gray
+    hover_color COLOR_WHITE
 
-# for promotion UI
-# XXX: calling SetVariable('chess_displayable.promotion', val) will cause
-# renpy to make a variable literally named chess_displayable.promotion
-# instead of assigning it to a class member
-default PROMOTION = None
+# END STYLE
 
 # BEGIN SCREEN
 
@@ -77,7 +78,7 @@ screen chess:
 
     add Solid("#000") # black
 
-    # left panel for diplaying whoseturn text
+    # left top panel for diplaying whoseturn text
     fixed xpos 20 ypos 80 spacing 40:
         vbox:
             showif chess_displayable.board.turn == chess.WHITE:
@@ -91,6 +92,14 @@ screen chess:
                 text "Stalemate" style "game_status_text"
             elif chess_displayable.game_status == INCHECK:
                 text "In Check" style "game_status_text"
+    # left bottom
+    fixed xpos 60 ypos 600 spacing 10:
+        vbox:
+            text "Flip board view" color COLOR_WHITE xalign 0.5
+            textbutton "↑↓":
+                action [ToggleField(chess_displayable, 'bottom'),
+                        SetField(chess_displayable, 'restart_interaction', True)]
+                style "flip_board" xalign 0.5
 
     # middle panel for chess displayable
     fixed xpos 280:
@@ -108,10 +117,14 @@ screen chess:
         text "Select promotion piece type" xpos 1010 ypos 180 color COLOR_WHITE size 18
         vbox xalign 0.9 yalign 0.5 spacing 20:
             null height 40
-            textbutton "♜" action SetVariable('PROMOTION', chess.ROOK) style "promotion_piece"
-            textbutton "♝" action SetVariable('PROMOTION', chess.BISHOP) style "promotion_piece"
-            textbutton "♞" action SetVariable('PROMOTION', chess.KNIGHT) style "promotion_piece"
-            textbutton "♛" action SetVariable('PROMOTION', chess.QUEEN) style "promotion_piece"
+            textbutton "♜":
+                action SetField(chess_displayable, 'promotion', chess.ROOK)style "promotion_piece"
+            textbutton "♝":
+                action SetField(chess_displayable, 'promotion', chess.BISHOP) style "promotion_piece"
+            textbutton "♞":
+                action SetField(chess_displayable, 'promotion', chess.KNIGHT) style "promotion_piece"
+            textbutton "♛":
+                action SetField(chess_displayable, 'promotion', chess.QUEEN) style "promotion_piece"
 
 # END SCREEN
 
@@ -208,6 +221,11 @@ init python:
 
             # if True, show promotion UI screen
             self.show_promotion_ui = False
+            self.promotion = None
+
+            # for flipping board
+            self.bottom = chess.WHITE
+            self.restart_interaction = False
 
             self.game_status = None
             # return to _return in script, could be chess.WHITE, chess.BLACK, or, None
@@ -221,7 +239,8 @@ init python:
                 if piece:
                     piece_img = self.piece_imgs[piece.symbol()]
                     piece_coord = indices_to_coord(chess.square_file(square),
-                                                    chess.square_rank(square))
+                                                    chess.square_rank(square),
+                                                    bottom=self.bottom)
                     render.place(piece_img, 
                         x=piece_coord[0], y=piece_coord[1])
 
@@ -234,7 +253,8 @@ init python:
             # render a list legal moves for the selected piece on loc
             for square in self.legal_dsts:
                 square_coord = indices_to_coord(chess.square_file(square),
-                                                chess.square_rank(square))
+                                                chess.square_rank(square),
+                                                bottom=self.bottom)
                 render.place(self.legal_dst_img, x=square_coord[0], y=square_coord[1])
 
             renpy.restart_interaction() # force refresh the screen
@@ -273,15 +293,22 @@ init python:
                 elif keys[pygame.K_c]: # claim draw
                     self.show_claim_draw_ui() # no need to specify if it's threefold or fifty-move
 
+            # set by the flip board button
+            if self.restart_interaction:
+                self.restart_interaction = False
+                # reset any selected piece
+                self.src_coord = None
+                self.legal_dsts = []
+                renpy.redraw(self, 0)
+                renpy.restart_interaction()
+
             # regular gameplay interaction
             if 0 < x < config.screen_height and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
-
-                global PROMOTION
 
                 # first click, check if loc is selectable
                 if self.src_coord is None:
                     src_coord = round_coord(x, y)
-                    src_square = coord_to_square(src_coord)
+                    src_square = coord_to_square(src_coord, bottom=self.bottom)
                     # redraw if there is a piece of the current player's color on square
                     piece = self.board.piece_at(src_square)
                     if piece and piece.color == self.board.turn:
@@ -292,15 +319,15 @@ init python:
 
                         if self.has_promoting_piece(src_square):
                             self.show_promotion_ui = True
-                            PROMOTION = None
+                            self.promotion = None
 
                         renpy.redraw(self, 0)
 
                 # second click, check if should deselect
                 else:
                     dst_coord = round_coord(x, y)
-                    dst_square = coord_to_square(dst_coord)
-                    src_square = coord_to_square(self.src_coord)
+                    dst_square = coord_to_square(dst_coord, bottom=self.bottom)
+                    src_square = coord_to_square(self.src_coord, bottom=self.bottom)
 
                     # if player selects the same piece, deselect
                     if dst_square == src_square:
@@ -322,12 +349,12 @@ init python:
                             self.show_promotion_ui = True
                         else:
                             self.show_promotion_ui = False
-                        PROMOTION = None
+                        self.promotion = None
                         renpy.redraw(self, 0)
                         return
 
                     # move construction
-                    move = chess.Move(src_square, dst_square, promotion=PROMOTION)
+                    move = chess.Move(src_square, dst_square, promotion=self.promotion)
                     if self.show_promotion_ui and not move.promotion:
                         renpy.notify('Please select a piece type to promote to')
 
@@ -341,7 +368,7 @@ init python:
 
                         self.check_game_status()
                         self.show_promotion_ui = False
-                        PROMOTION = None
+                        self.promotion = None
 
         # helpers
         def load_piece_imgs(self):
@@ -398,7 +425,7 @@ init python:
 
             if self.board.is_stalemate():
                 self.game_status = STALEMATE
-                renpy.sound.play(AUDIO_STALEMATE)
+                renpy.sound.play(AUDIO_DRAW)
                 renpy.notify('Stalemate')
                 return
 
@@ -422,28 +449,40 @@ init python:
             """
             renpy.show_screen("confirm", 
                 message=reason + "Would you like to claim draw?", 
-                yes_action=[Hide("confirm"), Return(DRAW)], 
+                yes_action=[Hide("confirm"), Play("sound", AUDIO_DRAW), Return(DRAW)], 
                 no_action=Hide("confirm"))
             renpy.restart_interaction()
 
     # helper functions
-    def coord_to_square(coord):
+    def coord_to_square(coord, bottom=chess.WHITE):
+        """
+        bottom: if chess.BLACK, flip the coordinate calculation
+        """
         x, y = coord
-        file_idx = x / LOC_LEN
-        rank_idx = INDEX_MAX - (y / LOC_LEN)
+        if bottom == chess.WHITE:
+            file_idx = x / LOC_LEN
+            rank_idx = INDEX_MAX - (y / LOC_LEN)
+        else: # black on bottom
+            file_idx = INDEX_MAX - x / LOC_LEN
+            rank_idx = y / LOC_LEN
         square = chess.square(file_idx, rank_idx)
+        print(square, file_idx, rank_idx)
         return square
 
+    def indices_to_coord(file_idx, rank_idx, bottom=chess.WHITE):
+        assert INDEX_MIN <= file_idx <= INDEX_MAX and INDEX_MIN <= file_idx <= INDEX_MAX
+        if bottom == chess.WHITE:
+            x = LOC_LEN * file_idx
+            y = LOC_LEN * (INDEX_MAX - rank_idx)
+        else: # black on bottom
+            x = LOC_LEN * (INDEX_MAX - file_idx)
+            y = LOC_LEN * rank_idx
+        return (x, y)
+
     def round_coord(x, y):
-        '''
+        """
         for drawing, computes cursor coord rounded to the upperleft coord of the current loc
-        '''
+        """
         x_round = x / LOC_LEN * LOC_LEN
         y_round = y / LOC_LEN * LOC_LEN
         return (x_round, y_round)
-
-    def indices_to_coord(file_idx, rank_idx):
-        assert INDEX_MIN <= file_idx <= INDEX_MAX and INDEX_MIN <= file_idx <= INDEX_MAX
-        x = LOC_LEN * file_idx
-        y = LOC_LEN * (INDEX_MAX - rank_idx)
-        return (x, y)
