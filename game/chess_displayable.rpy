@@ -466,7 +466,6 @@ init python:
             file_idx = INDEX_MAX - x / LOC_LEN
             rank_idx = y / LOC_LEN
         square = chess.square(file_idx, rank_idx)
-        print(square, file_idx, rank_idx)
         return square
 
     def indices_to_coord(file_idx, rank_idx, bottom=chess.WHITE):
