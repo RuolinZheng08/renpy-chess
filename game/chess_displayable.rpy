@@ -34,6 +34,9 @@ define AUDIO_CHECKMATE = 'audio/checkmate.wav'
 define AUDIO_DRAW = 'audio/draw.wav' # used for stalemate, threefold, fifty-move
 define AUDIO_FLIP_BOARD = 'audio/flip_board.wav'
 
+# number of history moves to display
+define NUM_HISTORY = 5
+
 # stockfish params
 define MAX_MOVETIME = 3000 # max think time in millisec
 define MAX_DEPTH = 20
@@ -93,6 +96,13 @@ screen chess:
                 text 'Stalemate' style 'game_status_text'
             elif chess_displayable.game_status == INCHECK:
                 text 'In Check' style 'game_status_text'
+
+            null height 50
+
+            text 'Most recent moves' color COLOR_WHITE xalign 0.5
+            for move in chess_displayable.history:
+                text (move) color COLOR_WHITE xalign 0.5
+
     # left bottom
     fixed xpos 60 ypos 600 spacing 10:
         vbox:
@@ -140,6 +150,7 @@ init python:
     import chess.uci
     import pygame
     import os
+    from collections import deque # track move history
 
     # stockfish engine is OS-dependent
     if renpy.android:
@@ -189,6 +200,8 @@ init python:
             self.board = chess.Board(fen=fen)
 
             self.has_flipped_board = False # for flipping board view
+
+            self.history = deque([], NUM_HISTORY)
 
             self.player_color = None
             if player_color is None: # player vs player
@@ -279,8 +292,8 @@ init python:
                 self.play_move_audio(move)
 
                 self.board.push(move)
+                self.history.append(str(move))
                 renpy.redraw(self, 0) # redraw pieces
-
                 self.check_game_status() # update self.game_status
                 return
 
@@ -368,8 +381,8 @@ init python:
                         self.board.push(move)
                         self.src_coord = None
                         self.legal_dsts = []
+                        self.history.append(str(move))
                         renpy.redraw(self, 0)
-
                         self.check_game_status()
                         self.show_promotion_ui = False
                         self.promotion = None
