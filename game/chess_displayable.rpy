@@ -72,7 +72,7 @@ style flip_board_text is text:
 
 # BEGIN SCREEN
 
-screen chess:
+screen chess(fen, player_color, movetime, depth):
     
     modal True
 

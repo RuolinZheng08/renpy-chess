@@ -10,7 +10,6 @@ define e = Character("Eileen")
 label start:
     scene bg room
     e "Welcome to the Ren'Py Chess Game!"
-    $ fen = chess.STARTING_FEN
 
     menu:
         "Please select the game mode."
@@ -37,7 +36,8 @@ label start:
     window hide
     $ quick_menu = False
 
-    call screen chess
+    $ fen = chess.STARTING_FEN
+    call screen chess(fen, player_color, movetime, depth)
 
     $ quick_menu = True
     window show
