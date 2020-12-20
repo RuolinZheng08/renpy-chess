@@ -38,13 +38,13 @@ Click on a piece and all of its available moves will be highlighted in blue. Cli
 
 ## Guide for Integrating into a Ren'Py Project
 
-The core class is a [Ren'Py Creator-Defined Displayable](https://www.renpy.org/doc/html/udd.html) named `ChessDisplayable` inside `game/chess_displayable.rpy`.
+The core class is a [Ren'Py Creator-Defined Displayable](https://www.renpy.org/doc/html/udd.html) named `ChessDisplayable` inside `game/chess_displayable.rpy`. The core screen takes several parameters, `game/chess_displayable.rpy`.
 
 ### Instructions
 
 Copy the image files `game/images/chesspieces` and `game/images/chessboard.png` and the script file `game/chess_displayable.rpy` into your `game/` directory.
 
-In your `script.rpy`, define the following configuration variables for the chess engine:
+In your `script.rpy`, pass the following configuration variables for the chess engine to the chess screen defined as `screen chess(fen, player_color, movetime, depth)`:
 
 - `fen`: the [Forsyth–Edwards Notation](https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation) of the board
 - `player_color`: `None` for PvP. For PvC, `chess.WHITE` or `chess.BLACK`.
@@ -57,7 +57,8 @@ To call the chess displayable screen:
 window hide
 $ quick_menu = False
 
-call screen chess
+$ fen = chess.STARTING_FEN
+call screen chess(fen, player_color, movetime, depth)
 
 $ quick_menu = True
 window show
@@ -67,7 +68,6 @@ A complete example is as follows. Also see the `script.rpy` file in this repo.
 
 ```renpy
 define e = Character("Eileen")
-$ fen = chess.STARTING_FEN
 
 menu:
     "Please select the game mode."
@@ -94,7 +94,8 @@ menu:
 window hide
 $ quick_menu = False
 
-call screen chess
+$ fen = chess.STARTING_FEN
+call screen chess(fen, player_color, movetime, depth)
 
 $ quick_menu = True
 window show
@@ -109,6 +110,10 @@ else:
     elif _return is not None:
         e "Better luck next time, player."
 ```
+
+### Customizations for Different Difficulty Levels
+
+The strength of the compuer player can be customized by setting the `depth` parameter between the range of 1 and 20, with a larger number indicating more strength. See [Stockfish depth to ELO conversion](https://chess.stackexchange.com/a/8125).
 
 ### Customizations for Different Screen Sizes, Colors, Styles, and Audios
 
@@ -133,3 +138,9 @@ define AUDIO_FLIP_BOARD = 'audio/flip_board.wav'
 
 ## Continuous Development
 The project is under active maintenance and you can view its development status on this public [Trello board](https://trello.com/b/ip9YLSPa/renpy-chess). Please feel free to submit a GitHub issue for bugs and feature requests. The source code is expected to be used in a Ren'Py kinetic novel game, [The Wind at Dawn](https://madeleine-chai.itch.io/the-wind-at-dawn).
+
+## Asset Credits
+
+- Chess image: Photo by <a href="https://unsplash.com/@neon845b?utm_source=unsplash&amp;utm_medium=referral&amp;utm_content=creditCopyText">Jani Kaasinen</a> on <a href="https://unsplash.com/s/photos/chess?utm_source=unsplash&amp;utm_medium=referral&amp;utm_content=creditCopyText">Unsplash</a>. Resized and cropped to fit the screen.
+- Chess background: [Chess - Wikipedia](https://images.app.goo.gl/MNkrhBteWb7VpPGN7)
+- [Chess pieces](https://github.com/ljordan51/ChessGame/tree/master/pieces)
