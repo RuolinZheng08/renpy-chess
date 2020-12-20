@@ -21,7 +21,18 @@ label start:
 
         "Player vs. Computer":
             $ movetime = 2000
-            $ depth = 10
+
+            menu:
+                "Please select a difficulty level"
+
+                "Easy":
+                    $ depth = 2
+
+                "Medium":
+                    $ depth = 6
+
+                "Hard":
+                    $ depth = 12
 
             menu:
                 "Please select Player color"
