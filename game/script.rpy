@@ -47,8 +47,17 @@ label start:
     window hide
     $ quick_menu = False
 
+    # avoid rolling back and losing chess game state
+    $ renpy.block_rollback()
+
     $ fen = chess.STARTING_FEN
     call screen chess(fen, player_color, movetime, depth)
+
+    # avoid rolling back and entering the chess game again
+    $ renpy.block_rollback()
+
+    # restore rollback from this point on
+    $ renpy.checkpoint()
 
     $ quick_menu = True
     window show
