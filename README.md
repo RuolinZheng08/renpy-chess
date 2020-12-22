@@ -42,7 +42,10 @@ The core class is a [Ren'Py Creator-Defined Displayable](https://www.renpy.org/d
 
 ### Instructions
 
-Copy the image files `game/images/chesspieces` and `game/images/chessboard.png` and the script file `game/chess_displayable.rpy` into your `game/` directory.
+Copy the following files into your `game/` directory:
+- The [Python modules](https://github.com/RuolinZheng08/renpy-chess/tree/master/game/python-packages) inside `game/python-packages`
+- The image files `game/images/chesspieces` and `game/images/chessboard.png`
+- The script file `game/chess_displayable.rpy` into your `game/` directory
 
 In your `script.rpy`, pass the following configuration variables for the chess engine to the chess screen defined as `screen chess(fen, player_color, movetime, depth)`:
 
@@ -138,6 +141,9 @@ define AUDIO_FLIP_BOARD = 'audio/flip_board.wav'
 
 ## Continuous Development
 The project is under active maintenance and you can view its development status on this public [Trello board](https://trello.com/b/ip9YLSPa/renpy-chess). Please feel free to submit a GitHub issue for bugs and feature requests. The source code is expected to be used in a Ren'Py kinetic novel game, [The Wind at Dawn](https://madeleine-chai.itch.io/the-wind-at-dawn).
+
+## Contribution
+Please feel free to submit GitHub issues and PRs. You are also more than welcome to join the Trello board if you are interested!
 
 ## Asset Credits
 
