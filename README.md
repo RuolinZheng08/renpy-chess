@@ -44,8 +44,10 @@ The core class is a [Ren'Py Creator-Defined Displayable](https://www.renpy.org/d
 
 Copy the following files into your `game/` directory:
 - The [Python modules](https://github.com/RuolinZheng08/renpy-chess/tree/master/game/python-packages) inside `game/python-packages`
+- The [Stockfish binaries](https://github.com/RuolinZheng08/renpy-chess/tree/master/game/bin) in `game/bin`
 - The image files `game/images/chesspieces` and `game/images/chessboard.png`
-- The script file `game/chess_displayable.rpy` into your `game/` directory
+- The audio files for piece moves in `game/audio`
+- The script file `game/chess_displayable.rpy`
 
 In your `script.rpy`, pass the following configuration variables for the chess engine to the chess screen defined as `screen chess(fen, player_color, movetime, depth)`:
 
@@ -120,7 +122,7 @@ The strength of the compuer player can be customized by setting the `depth` para
 
 ### Customizations for Different Screen Sizes, Colors, Styles, and Audios
 
-Override the defaults in `chess_displayable.rpy` and replace the default chess piece and chess board images, or, audio files.
+Override the defaults in `chess_displayable.rpy` and replace the default chess piece and chess board images, or, audio files in `game/images` and `game/audio`.
 
 ```renpy
 define LOC_LEN = 90 # length of one side of a loc
