@@ -52,11 +52,13 @@ define DRAW = 4 # endgame _return code for stalemate, threefold, fifty-move
 # BEGIN STYLE
 
 style game_status_text is text:
+    font 'DejaVuSans.ttf'
     color COLOR_WHITE
     size TEXT_SIZE
 
 style promotion_piece is button
 style promotion_piece_text is text:
+    font 'DejaVuSans.ttf'
     size TEXT_BUTTON_SIZE
     color '#aaaaaa' # gray
     hover_color '#555555' # darker gray
@@ -64,6 +66,7 @@ style promotion_piece_text is text:
 
 style flip_board is button
 style flip_board_text is text:
+    font 'DejaVuSans.ttf'
     size TEXT_BUTTON_SIZE
     color '#aaaaaa' # gray
     hover_color COLOR_WHITE
