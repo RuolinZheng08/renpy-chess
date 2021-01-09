@@ -4,7 +4,10 @@
 
 This is a chess GUI built with the [Ren'Py](http://renpy.org/) Visual Novel Engine, [python-chess](https://github.com/niklasf/python-chess), and [Stockfish](https://stockfishchess.org/) (for chess AI). You can use it as a standalone playable or integrate it as a minigame into a Ren'Py visual novel project. Read the [guide for integration](https://github.com/RuolinZheng08/renpy-chess#guide-for-integrating-into-a-renpy-project) below.
 
-#### Gameplay Example: Fool's Mate
+### Compatibility
+This project currently supports up to Ren'Py 7.3.5. It doesn't support Ren'Py 7.4.0 due to Ren'Py 7.4.0's attempt at bridging Python 2 and 3. While I'm working on a port, please use [Ren'Py Chess 1.0](https://github.com/RuolinZheng08/renpy-chess-engine) for a chess engine compatible with Ren'Py 7.4.0.
+
+### Gameplay Example: Fool's Mate
 <img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/foolsmate.gif" alt="Gameplay Example" width=600>
 
 ## Differences between Ren'Py Chess 1.0 and Ren'Py Chess 2.0
@@ -44,8 +47,10 @@ The core class is a [Ren'Py Creator-Defined Displayable](https://www.renpy.org/d
 
 Copy the following files into your `game/` directory:
 - The [Python modules](https://github.com/RuolinZheng08/renpy-chess/tree/master/game/python-packages) inside `game/python-packages`
+- The [Stockfish binaries](https://github.com/RuolinZheng08/renpy-chess/tree/master/game/bin) in `game/bin`
 - The image files `game/images/chesspieces` and `game/images/chessboard.png`
-- The script file `game/chess_displayable.rpy` into your `game/` directory
+- The audio files for piece moves in `game/audio`
+- The script file `game/chess_displayable.rpy`
 
 In your `script.rpy`, pass the following configuration variables for the chess engine to the chess screen defined as `screen chess(fen, player_color, movetime, depth)`:
 
@@ -120,7 +125,7 @@ The strength of the compuer player can be customized by setting the `depth` para
 
 ### Customizations for Different Screen Sizes, Colors, Styles, and Audios
 
-Override the defaults in `chess_displayable.rpy` and replace the default chess piece and chess board images, or, audio files.
+Override the defaults in `chess_displayable.rpy` and replace the default chess piece and chess board images, or, audio files in `game/images` and `game/audio`.
 
 ```renpy
 define LOC_LEN = 90 # length of one side of a loc
