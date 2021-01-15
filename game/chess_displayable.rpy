@@ -41,12 +41,29 @@ define NUM_HISTORY = 5
 define MAX_MOVETIME = 3000 # max think time in millisec
 define MAX_DEPTH = 20
 
+# constants from the python-chess library
+define STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
+
+# BEGIN ENUM
+# color
+define WHITE = True
+define BLACK = False
+
+# piece type
+define PAWN = 1
+define KNIGHT = 2
+define BISHOP = 3
+define ROOK = 4
+define QUEEN = 5
+define KING = 6
+
 # status code enum
 define CHECKMATE = 1 # chess.WHITE is True i.e. 1 and chess.BLACK is False i.e. 0
 define STALEMATE = 2
 define INCHECK = 3
 define DRAW = 4 # endgame _return code for stalemate, threefold, fifty-move
 
+# END ENUM
 # END DEF
 
 # BEGIN STYLE
@@ -88,7 +105,7 @@ screen chess(fen, player_color, movetime, depth):
     # left top panel for diplaying whoseturn text
     fixed xpos 20 ypos 80 spacing 40:
         vbox:
-            showif chess_displayable.board.turn == chess.WHITE:
+            showif chess_displayable.whose_turn == WHITE:
                 text 'Whose turn: White' style 'game_status_text'
             else:
                 text 'Whose turn: Black' style 'game_status_text'
@@ -133,13 +150,13 @@ screen chess(fen, player_color, movetime, depth):
         vbox xalign 0.9 yalign 0.5 spacing 20:
             null height 40
             textbutton '♜':
-                action SetField(chess_displayable, 'promotion', chess.ROOK) style 'promotion_piece'
+                action SetField(chess_displayable, 'promotion', ROOK) style 'promotion_piece'
             textbutton '♝':
-                action SetField(chess_displayable, 'promotion', chess.BISHOP) style 'promotion_piece'
+                action SetField(chess_displayable, 'promotion', BISHOP) style 'promotion_piece'
             textbutton '♞':
-                action SetField(chess_displayable, 'promotion', chess.KNIGHT) style 'promotion_piece'
+                action SetField(chess_displayable, 'promotion', KNIGHT) style 'promotion_piece'
             textbutton '♛':
-                action SetField(chess_displayable, 'promotion', chess.QUEEN) style 'promotion_piece'
+                action SetField(chess_displayable, 'promotion', QUEEN) style 'promotion_piece'
 
 # END SCREEN
 
@@ -148,11 +165,9 @@ init python:
     # use UCI for move notations and FEN for board and move history
     # terms like cursor and coord, Stockfish and AI may be used interchangably
 
-    # https://python-chess.readthedocs.io/en/v0.23.11/
-    import chess
-    import chess.uci
-    import pygame
     import os
+    import sys
+    import pygame
     from collections import deque # track move history
 
     # stockfish engine is OS-dependent
@@ -197,18 +212,34 @@ init python:
         Else, use Player vs. Stockfish mode
         player_color: None, chess.WHITE, chess.BLACK
         """
-        def __init__(self, fen=chess.STARTING_FEN, player_color=None, movetime=2000, depth=10):
+        def __init__(self, fen=STARTING_FEN, player_color=None, movetime=2000, depth=10):
+
+            import subprocess # for communicating with the chess engine
+
             super(ChessDisplayable, self).__init__()
 
-            self.board = chess.Board(fen=fen)
+            # self.board = chess.Board(fen=fen)
+            chess_script = os.path.join(renpy.config.gamedir, 'chess_subprocess.py')
+            # for importing libraries
+            import_dir = os.path.join(renpy.config.gamedir, 'python-packages')
 
+            self.chess_subprocess = subprocess.Popen(
+                [sys.executable, chess_script, import_dir],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            
+            # DEBUG
+            self.chess_subprocess.stdin.write('hello!')
+            print('init ' + self.chess_subprocess.stdout.read())
+            # DEBUG
+
+            self.whose_turn = WHITE
             self.has_flipped_board = False # for flipping board view
 
             self.history = deque([], NUM_HISTORY)
 
             self.player_color = None
             if player_color is None: # player vs player
-                self.bottom_color = chess.WHITE # white on the bottom of screen by default
+                self.bottom_color = WHITE # white on the bottom of screen by default
                 self.stockfish = None # no AI
 
             else: # player vs computer
@@ -217,21 +248,20 @@ init python:
                 self.player_color = player_color
                 stockfish_path = os.path.abspath(os.path.join(config.basedir, 'game', STOCKFISH))
 
-                startupinfo = None
                 # stop stockfish from opening up shell
                 # https://stackoverflow.com/a/63538680
-                if renpy.windows:
-                    import subprocess
+                startupinfo = None
+                if renpy.windows:      
                     startupinfo = subprocess.STARTUPINFO()
                     startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
 
-                self.stockfish = chess.uci.popen_engine(stockfish_path, startupinfo=startupinfo)
+                # self.stockfish = chess.uci.popen_engine(stockfish_path, startupinfo=startupinfo)
 
-                self.stockfish.uci()
+                # self.stockfish.uci()
 
-                self.stockfish.position(self.board)
-                self.stockfish_movetime = movetime if movetime <= MAX_MOVETIME else MAX_MOVETIME
-                self.stockfish_depth = depth if depth <= MAX_DEPTH else MAX_DEPTH
+                # self.stockfish.position(self.board)
+                # self.stockfish_movetime = movetime if movetime <= MAX_MOVETIME else MAX_MOVETIME
+                # self.stockfish_depth = depth if depth <= MAX_DEPTH else MAX_DEPTH
 
             # displayables
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
@@ -253,16 +283,20 @@ init python:
 
         def render(self, width, height, st, at):
             render = renpy.Render(width, height)
+
+            return render
+
             # render pieces on board
-            for square in chess.SQUARES:
-                piece = self.board.piece_at(square)
-                if piece:
-                    piece_img = self.piece_imgs[piece.symbol()]
-                    piece_coord = indices_to_coord(chess.square_file(square),
-                                                    chess.square_rank(square),
-                                                    bottom_color=self.bottom_color)
-                    render.place(piece_img, 
-                        x=piece_coord[0], y=piece_coord[1])
+            for file_idx in range(INDEX_MIN, INDEX_MAX + 1):
+                for rank_idx in range(INDEX_MIN, INDEX_MAX + 1):
+                    # self.chess_subprocess.stdin.write(' '.join(['piece_at', str(file_idx), str(rank_idx), '\n']))
+                    # the symbol P, N, B, R, Q or K for white pieces or the lower-case variants for the black pieces
+                    piece = self.chess_subprocess.stdout.readline()
+                    print('piece ' + piece)
+                    if piece:
+                        piece_coord = indices_to_coord(file_idx, rank_idx, bottom_color=self.bottom_color)
+                        render.place(self.piece_imgs[piece], 
+                            x=piece_coord[0], y=piece_coord[1])
 
             # render selected loc
             if self.src_coord:
@@ -282,6 +316,8 @@ init python:
             return render
 
         def event(self, ev, x, y, st):
+
+            return
 
             # skip GUI interaction for AI's turn in Player vs. AI mode
             if self.stockfish and self.board.turn != self.player_color:
@@ -328,7 +364,7 @@ init python:
                 # first click, check if loc is selectable
                 if self.src_coord is None:
                     src_coord = round_coord(x, y)
-                    src_square = coord_to_square(src_coord, bottom_color=self.bottom_color)
+                    src_file, src_rank = coord_to_square(src_coord, bottom_color=self.bottom_color)
                     # redraw if there is a piece of the current player's color on square
                     piece = self.board.piece_at(src_square)
                     if piece and piece.color == self.board.turn:
@@ -346,8 +382,8 @@ init python:
                 # second click, check if should deselect
                 else:
                     dst_coord = round_coord(x, y)
-                    dst_square = coord_to_square(dst_coord, bottom_color=self.bottom_color)
-                    src_square = coord_to_square(self.src_coord, bottom_color=self.bottom_color)
+                    dst_file, dst_rank = coord_to_square(dst_coord, bottom_color=self.bottom_color)
+                    src_file, src_rank = coord_to_square(self.src_coord, bottom_color=self.bottom_color)
 
                     # if player selects the same piece, deselect
                     if dst_square == src_square:
@@ -407,18 +443,24 @@ init python:
         def has_promoting_piece(self, square):
             # check if the square contains a promoting piece
             # i.e. a pawn on the second to last row, of the current player color
+            
+            return False
+
             piece = self.board.piece_at(square)
-            ret = (piece and piece.color == self.board.turn and
-                piece.piece_type == chess.PAWN)
+            ret = (piece and piece.color == self.whose_turn and
+                piece.piece_type == PAWN)
             if not ret:
                 return False
             rank = chess.square_rank(square)
-            if piece.color == chess.WHITE:
+            if piece.color == WHITE:
                 return rank == PROMOTION_RANK_WHITE
             else:
                 return rank == PROMOTION_RANK_BLACK
 
         def play_move_audio(self, move):
+
+            return
+
             if move.promotion:
                 renpy.sound.play(AUDIO_PROMOTION)
             else:
@@ -438,9 +480,9 @@ init python:
                 renpy.sound.play(AUDIO_CHECKMATE)
                 # after a move, if it's white's turn, that means black has
                 # just moved and put white into checkmate, thus winner is black
-                # hence need to negate self.board.turn to get winner
+                # hence need to negate self.whose_turn to get winner
                 renpy.notify('Checkmate! The winner is %s' % ('black' if self.board.turn else 'white'))
-                self.winner = not self.board.turn
+                self.winner = not self.whose_turn
                 return
 
             if self.board.is_stalemate():
@@ -474,23 +516,22 @@ init python:
             renpy.restart_interaction()
 
     # helper functions
-    def coord_to_square(coord, bottom_color=chess.WHITE):
+    def coord_to_square(coord, bottom_color=WHITE):
         """
         bottom_color: if chess.BLACK, flip the coordinate calculation
         """
         x, y = coord
-        if bottom_color == chess.WHITE:
+        if bottom_color == WHITE:
             file_idx = x / LOC_LEN
             rank_idx = INDEX_MAX - (y / LOC_LEN)
         else: # black on bottom_color
             file_idx = INDEX_MAX - x / LOC_LEN
             rank_idx = y / LOC_LEN
-        square = chess.square(file_idx, rank_idx)
-        return square
+        return file_idx, rank_idx
 
-    def indices_to_coord(file_idx, rank_idx, bottom_color=chess.WHITE):
+    def indices_to_coord(file_idx, rank_idx, bottom_color=WHITE):
         assert INDEX_MIN <= file_idx <= INDEX_MAX and INDEX_MIN <= file_idx <= INDEX_MAX
-        if bottom_color == chess.WHITE:
+        if bottom_color == WHITE:
             x = LOC_LEN * file_idx
             y = LOC_LEN * (INDEX_MAX - rank_idx)
         else: # black on bottom_color

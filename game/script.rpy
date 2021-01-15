@@ -11,6 +11,20 @@ label start:
     scene bg room
     e "Welcome to the Ren'Py Chess Game!"
 
+    ### DEBUG
+
+    window hide
+    $ quick_menu = False
+    $ renpy.block_rollback()
+    call screen chess(fen=STARTING_FEN, player_color=WHITE, movetime=None, depth=None)
+    # avoid rolling back and entering the chess game again
+    $ renpy.block_rollback()
+    $ renpy.checkpoint()
+    $ quick_menu = True
+    window show
+
+    ###
+
     menu:
         "Please select the game mode."
 
@@ -38,11 +52,11 @@ label start:
                 "Please select Player color"
 
                 "White":
-                    $ player_color = chess.WHITE
+                    $ player_color = WHITE # this constant is defined in chess_displayable.rpy 
 
                 "Black":
                     # board view flipped so that the player's color is at the bottom of the screen
-                    $ player_color = chess.BLACK
+                    $ player_color = BLACK
 
     window hide
     $ quick_menu = False
@@ -50,7 +64,6 @@ label start:
     # avoid rolling back and losing chess game state
     $ renpy.block_rollback()
 
-    $ fen = chess.STARTING_FEN
     call screen chess(fen, player_color, movetime, depth)
 
     # avoid rolling back and entering the chess game again
