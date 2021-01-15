@@ -227,10 +227,8 @@ init python:
                 [sys.executable, chess_script, import_dir],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
             
-            # DEBUG
-            self.chess_subprocess.stdin.write('hello!')
-            print('init ' + self.chess_subprocess.stdout.read())
-            # DEBUG
+            self.chess_subprocess.stdin.write('#'.join(['fen', fen, '\n']))
+            # no return code to parse
 
             self.whose_turn = WHITE
             self.has_flipped_board = False # for flipping board view
@@ -284,16 +282,14 @@ init python:
         def render(self, width, height, st, at):
             render = renpy.Render(width, height)
 
-            return render
-
             # render pieces on board
             for file_idx in range(INDEX_MIN, INDEX_MAX + 1):
                 for rank_idx in range(INDEX_MIN, INDEX_MAX + 1):
-                    # self.chess_subprocess.stdin.write(' '.join(['piece_at', str(file_idx), str(rank_idx), '\n']))
                     # the symbol P, N, B, R, Q or K for white pieces or the lower-case variants for the black pieces
-                    piece = self.chess_subprocess.stdout.readline()
-                    print('piece ' + piece)
-                    if piece:
+                    self.chess_subprocess.stdin.write('#'.join(['piece_at', str(file_idx), str(rank_idx), '\n']))
+                    piece = self.chess_subprocess.stdout.readline().strip()
+
+                    if eval(piece) is not None:
                         piece_coord = indices_to_coord(file_idx, rank_idx, bottom_color=self.bottom_color)
                         render.place(self.piece_imgs[piece], 
                             x=piece_coord[0], y=piece_coord[1])
