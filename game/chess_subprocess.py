@@ -24,8 +24,12 @@ def main():
             if board is None:
                 board = chess.Board(fen=fen)
         elif args[0] == 'piece_at':
-            file_idx, rank_idx = args[1], args[2]
-            print('P')
+            file_idx, rank_idx = int(args[1]), int(args[2])
+            piece = board.piece_at(chess.square(file_idx, rank_idx))
+            if piece:
+                print(piece.symbol())
+            else:
+                print('None')
         sys.stdout.flush()
 
 if __name__ == '__main__':

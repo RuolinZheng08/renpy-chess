@@ -289,7 +289,7 @@ init python:
                     self.chess_subprocess.stdin.write('#'.join(['piece_at', str(file_idx), str(rank_idx), '\n']))
                     piece = self.chess_subprocess.stdout.readline().strip()
 
-                    if eval(piece) is not None:
+                    if piece != 'None':
                         piece_coord = indices_to_coord(file_idx, rank_idx, bottom_color=self.bottom_color)
                         render.place(self.piece_imgs[piece], 
                             x=piece_coord[0], y=piece_coord[1])
