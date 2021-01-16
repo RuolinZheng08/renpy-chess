@@ -137,9 +137,9 @@ screen chess(fen, player_color, movetime, depth):
         add hover_displayable # hover loc over chesspieces
         if chess_displayable.game_status == CHECKMATE:
             # use a timer so the player can see the screen once again
-            timer 4.0 action Return(chess_displayable.winner)
+            timer 4.0 action [Function(chess_displayable.kill_chess_subprocess), Return(chess_displayable.winner)]
         elif chess_displayable.game_status == STALEMATE:
-            timer 4.0 action Return(DRAW)
+            timer 4.0 action [Function(chess_displayable.kill_chess_subprocess), Return(DRAW)]
 
     # right panel for promotion selection
     showif chess_displayable.show_promotion_ui:
@@ -220,9 +220,14 @@ init python:
             # for importing libraries
             import_dir = os.path.join(renpy.config.gamedir, 'python-packages')
 
+            startupinfo = None
+            if renpy.windows:      
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
             self.chess_subprocess = subprocess.Popen(
                 [sys.executable, chess_script, import_dir],
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                startupinfo=startupinfo)
             
             self.chess_subprocess.stdin.write('#'.join(['fen', fen, '\n']))
             # no return code to parse
@@ -408,13 +413,10 @@ init python:
 
                     if move in self.get_legal_moves():
                         self.play_move_audio(move)
-                        # update board in the subprocess
-                        self.chess_subprocess.stdin.write('#'.join(['make_move', move, '\n']))
-                        # update whose_turn upon a valid move
-                        self.whose_turn = eval(self.chess_subprocess.stdout.readline().strip())
+                        self.make_move(move)
+                        self.history.append(move)
                         self.src_coord = None
                         self.legal_dsts = []
-                        self.history.append(move)
                         renpy.redraw(self, 0)
                         self.check_game_status()
                         self.show_promotion_ui = False
@@ -472,13 +474,11 @@ init python:
                 # hence need to negate self.whose_turn to get winner
                 renpy.notify('Checkmate! The winner is %s' % ('black' if self.whose_turn else 'white'))
                 self.winner = not self.whose_turn
-                self.kill_chess_subprocess()
                 return
 
             if self.game_status == STALEMATE:
                 renpy.sound.play(AUDIO_DRAW)
                 renpy.notify('Stalemate')
-                self.kill_chess_subprocess()
                 return
 
             # prompt player to claim draw if threefold or fifty-move occurs
@@ -500,8 +500,8 @@ init python:
             """
             renpy.show_screen('confirm', 
                 message=reason + 'Would you like to claim draw?', 
-                yes_action=[Hide('confirm'), Play('sound', AUDIO_DRAW), 
-                Function(self.kill_chess_subprocess), Return(DRAW)], 
+                yes_action=[Hide('confirm'), Play('sound', AUDIO_DRAW),
+                Return(DRAW)], 
                 no_action=Hide('confirm'))
             renpy.restart_interaction()
 
@@ -520,8 +520,30 @@ init python:
             """
             self.chess_subprocess.stdin.write('legal_moves\n')
             legal_moves = self.chess_subprocess.stdout.readline().strip().split('#')
+            return legal_moves
+
+        def make_move(self, move):
+            # update board in the subprocess
+            self.chess_subprocess.stdin.write('#'.join(['make_move', move, '\n']))
+            # update whose_turn upon a valid move
+            self.whose_turn = eval(self.chess_subprocess.stdout.readline().strip())
+
+        def kill_chess_subprocess(self):
+            self.chess_subprocess.stdin.write('quit\n')
+
+    # helper functions
+    def coord_to_square(coord, bottom_color=WHITE):
+        """
+        bottom_color: if chess.BLACK, flip the coordinate calculation
+        """
+        x, y = coord
+        if bottom_color == WHITE:
+            file_idx = x / LOC_LEN
+            rank_idx = INDEX_MAX - (y / LOC_LEN)
+        else: # black on bottom_color
+            file_idx = INDEX_MAX - x / LOC_LEN
             rank_idx = y / LOC_LEN
-            return file_idx, rank_idx
+        return file_idx, rank_idx
 
     def indices_to_coord(file_idx, rank_idx, bottom_color=WHITE):
         assert INDEX_MIN <= file_idx <= INDEX_MAX and INDEX_MIN <= file_idx <= INDEX_MAX
