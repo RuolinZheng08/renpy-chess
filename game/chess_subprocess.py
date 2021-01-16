@@ -79,7 +79,7 @@ class ChessEngine():
 
         self.stockfish = chess.uci.popen_engine(stockfish_path, startupinfo=startupinfo)
         self.stockfish.uci()
-        self.stockfish.position(board)
+        self.stockfish.position(self.board)
 
     def get_piece_at(self, args):
         file_idx, rank_idx = int(args[1]), int(args[2])
