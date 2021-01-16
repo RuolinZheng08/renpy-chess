@@ -512,7 +512,7 @@ init python:
             """
             renpy.show_screen('confirm', 
                 message=reason + 'Would you like to claim draw?', 
-                yes_action=[Hide('confirm'), Play("sound", AUDIO_DRAW), Return(DRAW)], 
+                yes_action=[Hide('confirm'), Play('sound', AUDIO_DRAW), Return(DRAW)], 
                 no_action=Hide('confirm'))
             renpy.restart_interaction()
 
