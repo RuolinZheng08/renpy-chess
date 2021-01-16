@@ -55,8 +55,9 @@ define BLACK = False
 define CHECKMATE = 1 # chess.WHITE is True i.e. 1 and chess.BLACK is False i.e. 0
 define STALEMATE = 2
 define INCHECK = 3
-define DRAW = 4 # endgame _return code for stalemate, threefold, fifty-move
-
+define THREEFOLD = 4
+define FIFTYMOVES = 5
+define DRAW = 6 # endgame _return code for stalemate, threefold, fifty-move
 # END ENUM
 # END DEF
 
@@ -429,7 +430,7 @@ init python:
                         self.legal_dsts = []
                         self.history.append(move)
                         renpy.redraw(self, 0)
-                        # self.check_game_status() # TODO
+                        self.check_game_status()
                         self.show_promotion_ui = False
                         self.promotion = None
                        
@@ -475,35 +476,34 @@ init python:
             Check if is checkmate, in check, or stalemate
             and update status text display accordingly
             """
+            self.chess_subprocess.stdin.write('game_status\n')
+            self.game_status = int(self.chess_subprocess.stdout.readline().strip())
             # need is_checkmate and is_stalemate before is_check
-            if self.board.is_checkmate():
-                self.game_status = CHECKMATE
+            if self.game_status == CHECKMATE:
                 renpy.sound.play(AUDIO_CHECKMATE)
                 # after a move, if it's white's turn, that means black has
                 # just moved and put white into checkmate, thus winner is black
                 # hence need to negate self.whose_turn to get winner
-                renpy.notify('Checkmate! The winner is %s' % ('black' if self.board.turn else 'white'))
+                renpy.notify('Checkmate! The winner is %s' % ('black' if self.whose_turn else 'white'))
                 self.winner = not self.whose_turn
                 return
 
-            if self.board.is_stalemate():
-                self.game_status = STALEMATE
+            if self.game_status == STALEMATE:
                 renpy.sound.play(AUDIO_DRAW)
                 renpy.notify('Stalemate')
                 return
 
             # prompt player to claim draw if threefold or fifty-move occurs
-            if self.board.can_claim_threefold_repetition():
+            if self.game_status == THREEFOLD:
                 self.show_claim_draw_ui(reason='Threefold repetition rule: ')
-            if self.board.can_claim_fifty_moves():
+            if self.game_status == FIFTYMOVES:
                 self.show_claim_draw_ui(reason='Fifty moves rule: ')
 
             # game resumes
-            if self.board.is_check():
-                self.game_status = INCHECK
+            if self.game_status == INCHECK:
                 renpy.sound.play(AUDIO_CHECK)
 
-            else:
+            else: # subprocess might have printed -1
                 self.game_status = None
 
         def show_claim_draw_ui(self, reason=''):

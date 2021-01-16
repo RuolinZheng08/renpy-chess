@@ -9,6 +9,14 @@ sys.path.append(import_dir)
 import chess
 import chess.uci
 
+# enum game_status as defined in chess_displayable.rpy
+CHECKMATE = 1
+STALEMATE = 2
+INCHECK = 3
+THREEFOLD = 4
+FIFTYMOVES = 5
+DRAW = 6
+
 def main():
     board = None # the chess board object
     stockfish = None
@@ -27,6 +35,8 @@ def main():
                 board = chess.Board(fen=fen)
         elif args[0] == 'stockfish':
             stockfish = 'TODO'
+        elif args[0] == 'game_status':
+            get_game_status(board)
         elif args[0] == 'piece_at':
             get_piece_at(board, args)
         elif args[0] == 'is_capture':
@@ -49,6 +59,24 @@ def get_is_capture(board, args):
     move_uci = args[1]
     move = chess.Move.from_uci(move_uci)
     print(board.is_capture(move))
+
+def get_game_status(board):
+    if board.is_checkmate():
+        print(CHECKMATE)
+        return
+    if board.is_stalemate():
+        print(STALEMATE)
+        return
+    if board.can_claim_threefold_repetition():
+        print(THREEFOLD)
+        return
+    if board.can_claim_fifty_moves():
+        print(FIFTYMOVES)
+        return
+    if board.is_check():
+        print(INCHECK)
+        return
+    print('-1') # no change to game_status
 
 def set_move(board, args):
     move_uci = args[1]
