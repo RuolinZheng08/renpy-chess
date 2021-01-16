@@ -238,7 +238,7 @@ init python:
             self.player_color = None
             if player_color is None: # player vs player
                 self.bottom_color = WHITE # white on the bottom of screen by default
-                self.stockfish = None # no AI
+                self.uses_stockfish = False # no AI
 
             else: # player vs computer
                 self.bottom_color = player_color # player color on the bottom
@@ -253,6 +253,7 @@ init python:
                     startupinfo = subprocess.STARTUPINFO()
                     startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
 
+                self.uses_stockfish = True
                 # self.stockfish = chess.uci.popen_engine(stockfish_path, startupinfo=startupinfo)
 
                 # self.stockfish.uci()
@@ -286,10 +287,8 @@ init python:
             for file_idx in range(INDEX_MIN, INDEX_MAX + 1):
                 for rank_idx in range(INDEX_MIN, INDEX_MAX + 1):
                     # the symbol P, N, B, R, Q or K for white pieces or the lower-case variants for the black pieces
-                    self.chess_subprocess.stdin.write('#'.join(['piece_at', str(file_idx), str(rank_idx), '\n']))
-                    piece = self.chess_subprocess.stdout.readline().strip()
-
-                    if piece != 'None':
+                    piece = self.get_piece_at(file_idx, rank_idx)
+                    if piece:
                         piece_coord = indices_to_coord(file_idx, rank_idx, bottom_color=self.bottom_color)
                         render.place(self.piece_imgs[piece], 
                             x=piece_coord[0], y=piece_coord[1])
@@ -301,10 +300,8 @@ init python:
                     width=LOC_LEN, height=LOC_LEN)
 
             # render a list legal moves for the selected piece on loc
-            for square in self.legal_dsts:
-                square_coord = indices_to_coord(chess.square_file(square),
-                                                chess.square_rank(square),
-                                                bottom_color=self.bottom_color)
+            for file_idx, rank_idx in self.legal_dsts:
+                square_coord = indices_to_coord(file_idx, rank_idx, bottom_color=self.bottom_color)
                 render.place(self.legal_dst_img, x=square_coord[0], y=square_coord[1])
 
             renpy.restart_interaction() # force refresh the screen
@@ -312,47 +309,44 @@ init python:
             return render
 
         def event(self, ev, x, y, st):
+            # # skip GUI interaction for AI's turn in Player vs. AI mode
+            # if self.stockfish and self.board.turn != self.player_color:
+            #     self.stockfish.position(self.board)
+            #     move = self.stockfish.go(movetime=self.stockfish_movetime, 
+            #         depth=self.stockfish_depth)
+            #     move = move.bestmove
+            #     if not move:
+            #         return
 
-            return
+            #     self.play_move_audio(move)
 
-            # skip GUI interaction for AI's turn in Player vs. AI mode
-            if self.stockfish and self.board.turn != self.player_color:
-                self.stockfish.position(self.board)
-                move = self.stockfish.go(movetime=self.stockfish_movetime, 
-                    depth=self.stockfish_depth)
-                move = move.bestmove
-                if not move:
-                    return
+            #     self.board.push(move)
+            #     self.history.append(str(move))
+            #     renpy.redraw(self, 0) # redraw pieces
+            #     self.check_game_status() # update self.game_status
+            #     return
 
-                self.play_move_audio(move)
+            # # XXX: in developer mode only, open up the UI for promotion or for claiming draw
+            # # in threefold repetition or fifty moves rule
+            # # https://en.wikipedia.org/wiki/Threefold_repetition
+            # # https://en.wikipedia.org/wiki/Fifty-move_rule
+            # # p: promotion, d: draw
+            # if config.developer:
+            #     keys = pygame.key.get_pressed()
+            #     if keys[pygame.K_p]: # promotion
+            #         self.show_promotion_ui = not self.show_promotion_ui # toggle show or hide
+            #         renpy.restart_interaction()
+            #     elif keys[pygame.K_c]: # claim draw
+            #         self.show_claim_draw_ui() # no need to specify if it's threefold or fifty-move
 
-                self.board.push(move)
-                self.history.append(str(move))
-                renpy.redraw(self, 0) # redraw pieces
-                self.check_game_status() # update self.game_status
-                return
-
-            # XXX: in developer mode only, open up the UI for promotion or for claiming draw
-            # in threefold repetition or fifty moves rule
-            # https://en.wikipedia.org/wiki/Threefold_repetition
-            # https://en.wikipedia.org/wiki/Fifty-move_rule
-            # p: promotion, d: draw
-            if config.developer:
-                keys = pygame.key.get_pressed()
-                if keys[pygame.K_p]: # promotion
-                    self.show_promotion_ui = not self.show_promotion_ui # toggle show or hide
-                    renpy.restart_interaction()
-                elif keys[pygame.K_c]: # claim draw
-                    self.show_claim_draw_ui() # no need to specify if it's threefold or fifty-move
-
-            # set by the flip board button
-            if self.has_flipped_board:
-                self.has_flipped_board = False
-                # reset any selected piece
-                self.src_coord = None
-                self.legal_dsts = []
-                renpy.redraw(self, 0)
-                renpy.restart_interaction()
+            # # set by the flip board button
+            # if self.has_flipped_board:
+            #     self.has_flipped_board = False
+            #     # reset any selected piece
+            #     self.src_coord = None
+            #     self.legal_dsts = []
+            #     renpy.redraw(self, 0)
+            #     renpy.restart_interaction()
 
             # regular gameplay interaction
             if 0 < x < config.screen_height and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
@@ -362,16 +356,30 @@ init python:
                     src_coord = round_coord(x, y)
                     src_file, src_rank = coord_to_square(src_coord, bottom_color=self.bottom_color)
                     # redraw if there is a piece of the current player's color on square
-                    piece = self.board.piece_at(src_square)
-                    if piece and piece.color == self.board.turn:
+                    piece = self.get_piece_at(src_file, src_rank)
+                    # white pieces are upper case, WHITE = True
+                    # hence piece.color is equivalent to piece.isupper()
+                    if piece.isupper():
                         self.src_coord = src_coord
                         # save legal destinations to be highlighted when redrawing render
-                        self.legal_dsts = [move.to_square for move
-                        in self.board.legal_moves if move.from_square == src_square]
 
-                        if self.has_promoting_piece(src_square):
-                            self.show_promotion_ui = True
-                            self.promotion = None
+                        self.legal_dsts = []
+                        
+                        legal_moves = self.get_legal_moves()
+                        print(legal_moves)
+                        for move in legal_moves:
+                            move_src_file, move_src_rank, move_dst_file, move_dst_rank = move_uci_to_file_rank(move)
+                            print(src_file, src_rank, move_src_file, move_src_rank, move_dst_file, move_dst_rank)
+                            # the move originates from the current square
+                            if move_src_file == src_file and move_src_rank == src_rank:
+                                self.legal_dsts.append((move_dst_file, move_dst_rank))
+
+                        # self.legal_dsts = [move.to_square for move
+                        # in self.get_legal_moves() if move.from_square == src_square]
+
+                        # if self.has_promoting_piece(src_square):
+                        #     self.show_promotion_ui = True
+                        #     self.promotion = None
 
                         renpy.redraw(self, 0)
 
@@ -511,6 +519,23 @@ init python:
                 no_action=Hide('confirm'))
             renpy.restart_interaction()
 
+        # helper functions for communicating with the subprocess
+        def get_piece_at(self, file_idx, rank_idx):
+            """
+            return the symbol P, N, B, R, Q or K for white pieces or the lower-case variants for the black pieces
+            """
+            self.chess_subprocess.stdin.write('#'.join(['piece_at', str(file_idx), str(rank_idx), '\n']))
+            piece = self.chess_subprocess.stdout.readline().strip()
+            return piece if piece != 'None' else None
+
+        def get_legal_moves(self):
+            """
+            return a list of legal moves
+            """
+            self.chess_subprocess.stdin.write('legal_moves\n')
+            legal_moves = self.chess_subprocess.stdout.readline().strip().split('#')
+            return legal_moves
+
     # helper functions
     def coord_to_square(coord, bottom_color=WHITE):
         """
@@ -542,3 +567,23 @@ init python:
         x_round = x / LOC_LEN * LOC_LEN
         y_round = y / LOC_LEN * LOC_LEN
         return (x_round, y_round)
+
+    def square_to_file_rank(square):
+        """
+        has promotion if len(square) == 3
+        """
+        assert len(square) == 2 or len(square) == 3
+        square = square[:2]
+        file_idx = INDEX_MAX - (ord(square[0]) - ord('a'))
+        rank_idx = int(square[1]) - 1
+        return file_idx, rank_idx
+
+    def move_uci_to_file_rank(move):
+        """
+        move uci looks like 'a7a8' or 'a7a8q'
+        """
+        src = move[:2]
+        dst = move[2:]
+        move_src_file, move_src_rank = square_to_file_rank(src)
+        move_dst_file, move_dst_rank = square_to_file_rank(dst)
+        return move_src_file, move_src_rank, move_dst_file, move_dst_rank
