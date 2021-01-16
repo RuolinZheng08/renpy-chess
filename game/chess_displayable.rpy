@@ -521,7 +521,7 @@ init python:
             self.chess_subprocess.stdin.write('legal_moves\n')
             legal_moves = self.chess_subprocess.stdout.readline().strip().split('#')
             rank_idx = y / LOC_LEN
-        return file_idx, rank_idx
+            return file_idx, rank_idx
 
     def indices_to_coord(file_idx, rank_idx, bottom_color=WHITE):
         assert INDEX_MIN <= file_idx <= INDEX_MAX and INDEX_MIN <= file_idx <= INDEX_MAX
