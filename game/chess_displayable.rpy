@@ -420,7 +420,7 @@ init python:
                         renpy.notify('Please select a piece type to promote to')
 
                     if move in self.get_legal_moves():
-                        # self.play_move_audio(move) # TODO
+                        self.play_move_audio(move)
                         # update board in the subprocess
                         self.chess_subprocess.stdin.write('#'.join(['make_move', move, '\n']))
                         # update whose_turn upon a valid move
@@ -459,13 +459,13 @@ init python:
                 return rank_idx == PROMOTION_RANK_BLACK
 
         def play_move_audio(self, move):
-
-            return
-
-            if move.promotion:
+            if len(move) == 5: # has promotion
                 renpy.sound.play(AUDIO_PROMOTION)
             else:
-                if self.board.is_capture(move):
+                # check subprocess to see if the move is a capture
+                self.chess_subprocess.stdin.write('#'.join(['is_capture', move, '\n']))
+                is_capture = eval(self.chess_subprocess.stdout.readline().strip())
+                if is_capture:
                     renpy.sound.play(AUDIO_CAPTURE)
                 else:
                     renpy.sound.play(AUDIO_MOVE)

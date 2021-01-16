@@ -29,10 +29,12 @@ def main():
             stockfish = 'TODO'
         elif args[0] == 'piece_at':
             get_piece_at(board, args)
-        elif args[0] == 'legal_moves':
-            print('#'.join([move.uci() for move in board.legal_moves]))
+        elif args[0] == 'is_capture':
+            get_is_capture(board, args)
         elif args[0] == 'make_move':
             set_move(board, args)
+        elif args[0] == 'legal_moves':
+            print('#'.join([move.uci() for move in board.legal_moves]))
         sys.stdout.flush()
 
 def get_piece_at(board, args):
@@ -42,6 +44,11 @@ def get_piece_at(board, args):
         print(piece.symbol())
     else:
         print('None')
+
+def get_is_capture(board, args):
+    move_uci = args[1]
+    move = chess.Move.from_uci(move_uci)
+    print(board.is_capture(move))
 
 def set_move(board, args):
     move_uci = args[1]
