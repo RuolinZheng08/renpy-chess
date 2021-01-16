@@ -349,7 +349,7 @@ init python:
                     piece = self.get_piece_at(src_file, src_rank)
                     # white pieces are upper case, WHITE = True
                     # hence piece.color is equivalent to piece.isupper()
-                    if piece.isupper() == self.whose_turn:
+                    if piece and piece.isupper() == self.whose_turn:
                         self.src_coord = src_coord
                         # get legal destinations for redrawing
                         self.legal_dsts = []

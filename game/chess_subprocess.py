@@ -10,19 +10,9 @@ sys.path.append(import_dir)
 import chess
 import chess.uci
 
-# enum game_status as defined in chess_displayable.rpy
-CHECKMATE = 1
-STALEMATE = 2
-INCHECK = 3
-THREEFOLD = 4
-FIFTYMOVES = 5
-DRAW = 6
-
 def main():
-    board = None # the chess board object
-    stockfish = None # chess AI engine
-    stockfish_movetime = None
-    stockfish_depth = None
+    
+    chess_engine = ChessEngine()
 
     while True:
         line = raw_input()
@@ -32,91 +22,110 @@ def main():
             continue   
         if args[0] == 'quit':
             break
+
         elif args[0] == 'fen':
-            fen = args[1]
-            if board is None:
-                board = chess.Board(fen=fen)
+            chess_engine.init_board(args)
         elif args[0] == 'stockfish':
-            stockfish_movetime = int(args[3])
-            stockfish_depth = int(args[4])
-            if stockfish is None:
-                stockfish = init_stockfish(board, args)
+            chess_engine.init_stockfish(args)
 
         elif args[0] == 'stockfish_move':
-            get_stockfish_move(board, stockfish, stockfish_movetime, stockfish_depth)
+            chess_engine.get_stockfish_move()
         elif args[0] == 'game_status':
-            get_game_status(board)
+            chess_engine.get_game_status()
         elif args[0] == 'piece_at':
-            get_piece_at(board, args)
+            chess_engine.get_piece_at(args)
         elif args[0] == 'is_capture':
-            get_is_capture(board, args)
-        elif args[0] == 'make_move':
-            set_move(board, args)
+            chess_engine.get_is_capture(args)
         elif args[0] == 'legal_moves':
-            print('#'.join([move.uci() for move in board.legal_moves]))
+            chess_engine.get_legal_moves()
+        elif args[0] == 'make_move':
+            chess_engine.set_move(args)
 
-        elif args[0] == 'quit':
-            return
         sys.stdout.flush()
 
-def init_stockfish(board, args):
-    stockfish_path = args[1]
-    is_os_windows = eval(args[2])
 
-    # stop stockfish from opening up shell
-    # https://stackoverflow.com/a/63538680
-    startupinfo = None
-    if is_os_windows:      
-        startupinfo = subprocess.STARTUPINFO()
-        startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
+class ChessEngine():
 
-    stockfish = chess.uci.popen_engine(stockfish_path, startupinfo=startupinfo)
-    stockfish.uci()
-    stockfish.position(board)
-    return stockfish
+    def __init__(self):
+        # enum game_status as defined in chess_displayable.rpy
+        self.CHECKMATE = 1
+        self.STALEMATE = 2
+        self.INCHECK = 3
+        self.THREEFOLD = 4
+        self.FIFTYMOVES = 5
+        self.DRAW = 6
 
-def get_piece_at(board, args):
-    file_idx, rank_idx = int(args[1]), int(args[2])
-    piece = board.piece_at(chess.square(file_idx, rank_idx))
-    if piece:
-        print(piece.symbol())
-    else:
-        print('None')
+        self.board = None # the chess board object
+        self.stockfish = None # chess AI engine
+        self.stockfish_movetime = None
+        self.stockfish_depth = None
 
-def get_is_capture(board, args):
-    move_uci = args[1]
-    move = chess.Move.from_uci(move_uci)
-    print(board.is_capture(move))
+    def init_board(self, args):
+        fen = args[1]
+        self.board = chess.Board(fen=fen)
 
-def get_game_status(board):
-    if board.is_checkmate():
-        print(CHECKMATE)
-        return
-    if board.is_stalemate():
-        print(STALEMATE)
-        return
-    if board.can_claim_threefold_repetition():
-        print(THREEFOLD)
-        return
-    if board.can_claim_fifty_moves():
-        print(FIFTYMOVES)
-        return
-    if board.is_check():
-        print(INCHECK)
-        return
-    print('-1') # no change to game_status
+    def init_stockfish(self, args):
+        stockfish_path = args[1]
+        is_os_windows = eval(args[2])
+        self.stockfish_movetime = int(args[3])
+        self.stockfish_depth = int(args[4])
 
-def get_stockfish_move(board, stockfish, stockfish_movetime, stockfish_depth):
-    stockfish.position(board)
-    move = stockfish.go(movetime=stockfish_movetime, depth=stockfish_depth)
-    move = move.bestmove
-    print(move.uci())
+        # stop stockfish from opening up shell on windows
+        # https://stackoverflow.com/a/63538680
+        startupinfo = None
+        if is_os_windows:      
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
 
-def set_move(board, args):
-    move_uci = args[1]
-    move = chess.Move.from_uci(move_uci)
-    board.push(move)
-    print(board.turn)
+        self.stockfish = chess.uci.popen_engine(stockfish_path, startupinfo=startupinfo)
+        self.stockfish.uci()
+        self.stockfish.position(board)
+
+    def get_piece_at(self, args):
+        file_idx, rank_idx = int(args[1]), int(args[2])
+        piece = self.board.piece_at(chess.square(file_idx, rank_idx))
+        if piece:
+            print(piece.symbol())
+        else:
+            print('None')
+
+    def get_is_capture(self, args):
+        move_uci = args[1]
+        move = chess.Move.from_uci(move_uci)
+        print(self.board.is_capture(move))
+
+    def get_game_status(self):
+        if self.board.is_checkmate():
+            print(self.CHECKMATE)
+            return
+        if self.board.is_stalemate():
+            print(self.STALEMATE)
+            return
+        if self.board.can_claim_threefold_repetition():
+            print(self.THREEFOLD)
+            return
+        if self.board.can_claim_fifty_moves():
+            print(self.FIFTYMOVES)
+            return
+        if self.board.is_check():
+            print(self.INCHECK)
+            return
+        print('-1') # no change to game_status
+
+    def get_stockfish_move(self):
+        self.stockfish.position(self.board)
+        move = self.stockfish.go(movetime=self.stockfish_movetime, depth=self.stockfish_depth)
+        move = move.bestmove
+        print(move.uci())
+
+    def get_legal_moves(self):
+        print('#'.join([move.uci() for move in self.board.legal_moves]))
+
+    def set_move(self, args):
+        move_uci = args[1]
+        move = chess.Move.from_uci(move_uci)
+        self.board.push(move)
+        print(self.board.turn)
 
 if __name__ == '__main__':
     main()
