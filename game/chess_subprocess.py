@@ -25,10 +25,14 @@ def main():
             fen = args[1]
             if board is None:
                 board = chess.Board(fen=fen)
+        elif args[0] == 'stockfish':
+            stockfish = 'TODO'
         elif args[0] == 'piece_at':
             get_piece_at(board, args)
         elif args[0] == 'legal_moves':
             print('#'.join([move.uci() for move in board.legal_moves]))
+        elif args[0] == 'make_move':
+            set_move(board, args)
         sys.stdout.flush()
 
 def get_piece_at(board, args):
@@ -38,6 +42,12 @@ def get_piece_at(board, args):
         print(piece.symbol())
     else:
         print('None')
+
+def set_move(board, args):
+    move_uci = args[1]
+    move = chess.Move.from_uci(move_uci)
+    board.push(move)
+    print(board.turn)
 
 if __name__ == '__main__':
     main()

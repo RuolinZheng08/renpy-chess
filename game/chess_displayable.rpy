@@ -6,6 +6,8 @@ define LOC_LEN = 90 # length of one side of a loc
 # both file and rank index from 0 to 7
 define INDEX_MIN = 0
 define INDEX_MAX = 7
+# 'a' is the leftmost file with index 0
+define FILE_LETTERS = ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h')
 
 define PROMOTION_RANK_WHITE = 6 # INDEX_MAX - 1
 define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
@@ -48,14 +50,6 @@ define STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 # color
 define WHITE = True
 define BLACK = False
-
-# piece type
-define PAWN = 1
-define KNIGHT = 2
-define BISHOP = 3
-define ROOK = 4
-define QUEEN = 5
-define KING = 6
 
 # status code enum
 define CHECKMATE = 1 # chess.WHITE is True i.e. 1 and chess.BLACK is False i.e. 0
@@ -150,13 +144,13 @@ screen chess(fen, player_color, movetime, depth):
         vbox xalign 0.9 yalign 0.5 spacing 20:
             null height 40
             textbutton '♜':
-                action SetField(chess_displayable, 'promotion', ROOK) style 'promotion_piece'
+                action SetField(chess_displayable, 'promotion', 'r') style 'promotion_piece'
             textbutton '♝':
-                action SetField(chess_displayable, 'promotion', BISHOP) style 'promotion_piece'
+                action SetField(chess_displayable, 'promotion', 'b') style 'promotion_piece'
             textbutton '♞':
-                action SetField(chess_displayable, 'promotion', KNIGHT) style 'promotion_piece'
+                action SetField(chess_displayable, 'promotion', 'n') style 'promotion_piece'
             textbutton '♛':
-                action SetField(chess_displayable, 'promotion', QUEEN) style 'promotion_piece'
+                action SetField(chess_displayable, 'promotion', 'q') style 'promotion_piece'
 
 # END SCREEN
 
@@ -359,27 +353,23 @@ init python:
                     piece = self.get_piece_at(src_file, src_rank)
                     # white pieces are upper case, WHITE = True
                     # hence piece.color is equivalent to piece.isupper()
-                    if piece.isupper():
+                    if piece.isupper() == self.whose_turn:
                         self.src_coord = src_coord
                         # save legal destinations to be highlighted when redrawing render
 
+                        # get legal destinations for redrawing
                         self.legal_dsts = []
-                        
                         legal_moves = self.get_legal_moves()
-                        print(legal_moves)
                         for move in legal_moves:
                             move_src_file, move_src_rank, move_dst_file, move_dst_rank = move_uci_to_file_rank(move)
-                            print(src_file, src_rank, move_src_file, move_src_rank, move_dst_file, move_dst_rank)
                             # the move originates from the current square
                             if move_src_file == src_file and move_src_rank == src_rank:
                                 self.legal_dsts.append((move_dst_file, move_dst_rank))
+                        print(self.legal_dsts)
 
-                        # self.legal_dsts = [move.to_square for move
-                        # in self.get_legal_moves() if move.from_square == src_square]
-
-                        # if self.has_promoting_piece(src_square):
-                        #     self.show_promotion_ui = True
-                        #     self.promotion = None
+                        if self.has_promoting_piece(src_file, src_rank):
+                            self.show_promotion_ui = True
+                            self.promotion = None
 
                         renpy.redraw(self, 0)
 
@@ -390,22 +380,29 @@ init python:
                     src_file, src_rank = coord_to_square(self.src_coord, bottom_color=self.bottom_color)
 
                     # if player selects the same piece, deselect
-                    if dst_square == src_square:
+                    if dst_file == src_file and dst_rank == src_rank:
                         self.src_coord = None
                         self.legal_dsts = []
                         renpy.redraw(self, 0)
                         return
 
                     # if player selects a piece of their color, change selection to that piece
-                    piece = self.board.piece_at(dst_square)
-                    if piece and piece.color == self.board.turn: # repeat code from first click
+                    piece = self.get_piece_at(dst_file, dst_rank)
+                    if piece and piece.isupper() == self.whose_turn:
+                        # repeat code from first click
+                        # change selection to the second-click piece
                         self.src_coord = dst_coord
-                        src_square = dst_square
-                        # save legal destinations to be highlighted when redrawing render
-                        self.legal_dsts = [move.to_square for move
-                        in self.board.legal_moves if move.from_square == src_square]
-                        # the piece could be a promoting pawn
-                        if self.has_promoting_piece(src_square):
+                        src_file, src_rank = dst_file, dst_rank
+                        # get legal destinations for redrawing
+                        self.legal_dsts = []
+                        legal_moves = self.get_legal_moves()
+                        for move in legal_moves:
+                            move_src_file, move_src_rank, move_dst_file, move_dst_rank = move_uci_to_file_rank(move)
+                            # the move originates from the current square
+                            if move_src_file == src_file and move_src_rank == src_rank:
+                                self.legal_dsts.append((move_dst_file, move_dst_rank))
+                        # check if the piece is a promoting pawn
+                        if self.has_promoting_piece(src_file, src_rank):
                             self.show_promotion_ui = True
                         else:
                             self.show_promotion_ui = False
@@ -413,23 +410,29 @@ init python:
                         renpy.redraw(self, 0)
                         return
 
-                    # move construction
-                    move = chess.Move(src_square, dst_square, promotion=self.promotion)
-                    if self.show_promotion_ui and not move.promotion:
+                    # construct move uci and pass to subprocess to validate
+                    move = construct_move_uci(src_file, src_rank, dst_file, dst_rank, promotion=self.promotion)
+                    print('construct move ' + move)
+
+                    # needs promotion but the player hasn't select a piece to promote to
+                    # if has promotion, len(move) should be 5, for ex, 'a7a8q'
+                    if self.show_promotion_ui and len(move) == 4:
                         renpy.notify('Please select a piece type to promote to')
 
-                    if move in self.board.legal_moves:
-                        self.play_move_audio(move)
-
-                        self.board.push(move)
+                    if move in self.get_legal_moves():
+                        # self.play_move_audio(move) # TODO
+                        # update board in the subprocess
+                        self.chess_subprocess.stdin.write('#'.join(['make_move', move, '\n']))
+                        # update whose_turn upon a valid move
+                        self.whose_turn = eval(self.chess_subprocess.stdout.readline().strip())
                         self.src_coord = None
                         self.legal_dsts = []
-                        self.history.append(str(move))
+                        self.history.append(move)
                         renpy.redraw(self, 0)
-                        self.check_game_status()
+                        # self.check_game_status() # TODO
                         self.show_promotion_ui = False
                         self.promotion = None
-
+                       
         # helpers
         def load_piece_imgs(self):
             # white pieces represented as P, N, K, etc. and black p, n, k, etc.
@@ -444,22 +447,16 @@ init python:
 
             return piece_imgs
 
-        def has_promoting_piece(self, square):
-            # check if the square contains a promoting piece
+        def has_promoting_piece(self, file_idx, rank_idx):
+            # check if the square identified by file and rank contains a promoting piece
             # i.e. a pawn on the second to last row, of the current player color
-            
-            return False
-
-            piece = self.board.piece_at(square)
-            ret = (piece and piece.color == self.whose_turn and
-                piece.piece_type == PAWN)
-            if not ret:
+            piece = self.get_piece_at(file_idx, rank_idx)
+            if not piece or not piece in ['p', 'P'] or not piece.isupper() == self.whose_turn:
                 return False
-            rank = chess.square_rank(square)
-            if piece.color == WHITE:
-                return rank == PROMOTION_RANK_WHITE
+            if piece.isupper(): # white
+                return rank_idx == PROMOTION_RANK_WHITE
             else:
-                return rank == PROMOTION_RANK_BLACK
+                return rank_idx == PROMOTION_RANK_BLACK
 
         def play_move_audio(self, move):
 
@@ -573,8 +570,8 @@ init python:
         has promotion if len(square) == 3
         """
         assert len(square) == 2 or len(square) == 3
-        square = square[:2]
-        file_idx = INDEX_MAX - (ord(square[0]) - ord('a'))
+        square = square[:2] # ignore promotion
+        file_idx = ord(square[0]) - ord('a')
         rank_idx = int(square[1]) - 1
         return file_idx, rank_idx
 
@@ -587,3 +584,10 @@ init python:
         move_src_file, move_src_rank = square_to_file_rank(src)
         move_dst_file, move_dst_rank = square_to_file_rank(dst)
         return move_src_file, move_src_rank, move_dst_file, move_dst_rank
+
+    def construct_move_uci(src_file_idx, src_rank_idx, dst_file_idx, dst_rank_idx, promotion=None):
+        move = FILE_LETTERS[src_file_idx] + str(src_rank_idx + 1)
+        move += FILE_LETTERS[dst_file_idx] + str(dst_rank_idx + 1)
+        if promotion:
+            move += promotion
+        return move
