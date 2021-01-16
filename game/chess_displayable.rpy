@@ -137,9 +137,9 @@ screen chess(fen, player_color, movetime, depth):
         add hover_displayable # hover loc over chesspieces
         if chess_displayable.game_status == CHECKMATE:
             # use a timer so the player can see the screen once again
-            timer 4.0 action Return(chess_displayable.winner)
+            timer 4.0 action [Function(chess_displayable.kill_chess_subprocess), Return(chess_displayable.winner)]
         elif chess_displayable.game_status == STALEMATE:
-            timer 4.0 action Return(DRAW)
+            timer 4.0 action [Function(chess_displayable.kill_chess_subprocess), Return(DRAW)]
 
     # right panel for promotion selection
     showif chess_displayable.show_promotion_ui:
@@ -303,12 +303,9 @@ init python:
             if self.uses_stockfish and self.whose_turn != self.player_color:
                 self.chess_subprocess.stdin.write('stockfish_move\n')
                 move = self.chess_subprocess.stdout.readline().strip()
-
+                # REFACTOR: consolidate with interactive move
                 self.play_move_audio(move)
-
-                self.chess_subprocess.stdin.write('#'.join(['make_move', move, '\n']))
-                self.whose_turn = eval(self.chess_subprocess.stdout.readline().strip())
-
+                self.set_move(move)
                 self.history.append(move)
                 renpy.redraw(self, 0) # redraw pieces
                 self.check_game_status() # update self.game_status
@@ -357,7 +354,6 @@ init python:
                             # the move originates from the current square
                             if move_src_file == src_file and move_src_rank == src_rank:
                                 self.legal_dsts.append((move_dst_file, move_dst_rank))
-                        print(self.legal_dsts)
 
                         if self.has_promoting_piece(src_file, src_rank):
                             self.show_promotion_ui = True
@@ -404,7 +400,6 @@ init python:
 
                     # construct move uci and pass to subprocess to validate
                     move = construct_move_uci(src_file, src_rank, dst_file, dst_rank, promotion=self.promotion)
-                    print('construct move ' + move)
 
                     # needs promotion but the player hasn't select a piece to promote to
                     # if has promotion, len(move) should be 5, for ex, 'a7a8q'
@@ -413,14 +408,13 @@ init python:
 
                     if move in self.get_legal_moves():
                         self.play_move_audio(move)
-                        # update board in the subprocess
-                        self.chess_subprocess.stdin.write('#'.join(['make_move', move, '\n']))
-                        # update whose_turn upon a valid move
-                        self.whose_turn = eval(self.chess_subprocess.stdout.readline().strip())
+                        self.set_move(move)
+                        self.history.append(move)
+
                         self.src_coord = None
                         self.legal_dsts = []
-                        self.history.append(move)
                         renpy.redraw(self, 0)
+
                         self.check_game_status()
                         self.show_promotion_ui = False
                         self.promotion = None
@@ -523,6 +517,15 @@ init python:
             self.chess_subprocess.stdin.write('legal_moves\n')
             legal_moves = self.chess_subprocess.stdout.readline().strip().split('#')
             return legal_moves
+
+        def set_move(self, move):
+            # update board in the subprocess
+            self.chess_subprocess.stdin.write('#'.join(['make_move', move, '\n']))
+            # update whose_turn upon a valid move
+            self.whose_turn = eval(self.chess_subprocess.stdout.readline().strip())
+
+        def kill_chess_subprocess(self):
+            self.chess_subprocess.stdin.write('quit\n')
 
     # helper functions
     def coord_to_square(coord, bottom_color=WHITE):

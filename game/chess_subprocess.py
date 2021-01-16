@@ -54,6 +54,9 @@ def main():
             set_move(board, args)
         elif args[0] == 'legal_moves':
             print('#'.join([move.uci() for move in board.legal_moves]))
+
+        elif args[0] == 'quit':
+            return
         sys.stdout.flush()
 
 def init_stockfish(board, args):
