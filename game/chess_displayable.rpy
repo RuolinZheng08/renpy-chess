@@ -40,7 +40,9 @@ define AUDIO_FLIP_BOARD = 'audio/flip_board.wav'
 define NUM_HISTORY = 5
 
 # stockfish params
-define MAX_MOVETIME = 3000 # max think time in millisec
+define MIN_MOVETIME = 100 # min thinking time in milliseconds
+define MAX_MOVETIME = 3000 # max thinking time in milliseconds
+define MIN_DEPTH = 1
 define MAX_DEPTH = 20
 
 # constants from the python-chess library
@@ -230,33 +232,26 @@ init python:
 
             self.history = deque([], NUM_HISTORY)
 
-            self.player_color = None
-            if player_color is None: # player vs player
+            self.player_color = player_color
+
+            if self.player_color is None: # player vs player
                 self.bottom_color = WHITE # white on the bottom of screen by default
                 self.uses_stockfish = False # no AI
 
             else: # player vs computer
-                self.bottom_color = player_color # player color on the bottom
-
-                self.player_color = player_color
-                stockfish_path = os.path.abspath(os.path.join(config.basedir, 'game', STOCKFISH))
-
-                # stop stockfish from opening up shell
-                # https://stackoverflow.com/a/63538680
-                startupinfo = None
-                if renpy.windows:      
-                    startupinfo = subprocess.STARTUPINFO()
-                    startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
-
+                self.bottom_color = self.player_color # player color on the bottom
                 self.uses_stockfish = True
-                # self.stockfish = chess.uci.popen_engine(stockfish_path, startupinfo=startupinfo)
 
-                # self.stockfish.uci()
+                # validate stockfish params movetime and depth
+                movetime = movetime if MIN_MOVETIME <= movetime <= MAX_MOVETIME else MAX_MOVETIME
+                depth = depth if MIN_DEPTH <= depth <= MAX_DEPTH else MAX_DEPTH
 
-                # self.stockfish.position(self.board)
-                # self.stockfish_movetime = movetime if movetime <= MAX_MOVETIME else MAX_MOVETIME
-                # self.stockfish_depth = depth if depth <= MAX_DEPTH else MAX_DEPTH
-
+                # load appropraite stockfish binary in subprocess
+                stockfish_path = os.path.abspath(os.path.join(config.gamedir, STOCKFISH))
+                self.chess_subprocess.stdin.write('#'.join([
+                    'stockfish', stockfish_path, str(renpy.windows), str(movetime), str(depth), '\n']))
+                # no return code to parse
+                
             # displayables
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
             self.legal_dst_img = Solid(COLOR_LEGAL_DST, xsize=LOC_LEN, ysize=LOC_LEN)
@@ -283,7 +278,7 @@ init python:
                 for rank_idx in range(INDEX_MIN, INDEX_MAX + 1):
                     # the symbol P, N, B, R, Q or K for white pieces or the lower-case variants for the black pieces
                     piece = self.get_piece_at(file_idx, rank_idx)
-                    if piece:
+                    if piece in self.piece_imgs: # piece could be None
                         piece_coord = indices_to_coord(file_idx, rank_idx, bottom_color=self.bottom_color)
                         render.place(self.piece_imgs[piece], 
                             x=piece_coord[0], y=piece_coord[1])
@@ -304,44 +299,42 @@ init python:
             return render
 
         def event(self, ev, x, y, st):
-            # # skip GUI interaction for AI's turn in Player vs. AI mode
-            # if self.stockfish and self.board.turn != self.player_color:
-            #     self.stockfish.position(self.board)
-            #     move = self.stockfish.go(movetime=self.stockfish_movetime, 
-            #         depth=self.stockfish_depth)
-            #     move = move.bestmove
-            #     if not move:
-            #         return
+            # skip GUI interaction for AI's turn in Player vs. AI mode
+            if self.uses_stockfish and self.whose_turn != self.player_color:
+                self.chess_subprocess.stdin.write('stockfish_move\n')
+                move = self.chess_subprocess.stdout.readline().strip()
 
-            #     self.play_move_audio(move)
+                self.play_move_audio(move)
 
-            #     self.board.push(move)
-            #     self.history.append(str(move))
-            #     renpy.redraw(self, 0) # redraw pieces
-            #     self.check_game_status() # update self.game_status
-            #     return
+                self.chess_subprocess.stdin.write('#'.join(['make_move', move, '\n']))
+                self.whose_turn = eval(self.chess_subprocess.stdout.readline().strip())
 
-            # # XXX: in developer mode only, open up the UI for promotion or for claiming draw
-            # # in threefold repetition or fifty moves rule
-            # # https://en.wikipedia.org/wiki/Threefold_repetition
-            # # https://en.wikipedia.org/wiki/Fifty-move_rule
-            # # p: promotion, d: draw
-            # if config.developer:
-            #     keys = pygame.key.get_pressed()
-            #     if keys[pygame.K_p]: # promotion
-            #         self.show_promotion_ui = not self.show_promotion_ui # toggle show or hide
-            #         renpy.restart_interaction()
-            #     elif keys[pygame.K_c]: # claim draw
-            #         self.show_claim_draw_ui() # no need to specify if it's threefold or fifty-move
+                self.history.append(move)
+                renpy.redraw(self, 0) # redraw pieces
+                self.check_game_status() # update self.game_status
+                return
 
-            # # set by the flip board button
-            # if self.has_flipped_board:
-            #     self.has_flipped_board = False
-            #     # reset any selected piece
-            #     self.src_coord = None
-            #     self.legal_dsts = []
-            #     renpy.redraw(self, 0)
-            #     renpy.restart_interaction()
+            # XXX: in developer mode only, open up the UI for promotion or for claiming draw
+            # in threefold repetition or fifty moves rule
+            # https://en.wikipedia.org/wiki/Threefold_repetition
+            # https://en.wikipedia.org/wiki/Fifty-move_rule
+            # p: promotion, d: draw
+            if config.developer:
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_p]: # promotion
+                    self.show_promotion_ui = not self.show_promotion_ui # toggle show or hide
+                    renpy.restart_interaction()
+                elif keys[pygame.K_c]: # claim draw
+                    self.show_claim_draw_ui() # no need to specify if it's threefold or fifty-move
+
+            # set by the flip board button
+            if self.has_flipped_board:
+                self.has_flipped_board = False
+                # reset any selected piece
+                self.src_coord = None
+                self.legal_dsts = []
+                renpy.redraw(self, 0)
+                renpy.restart_interaction()
 
             # regular gameplay interaction
             if 0 < x < config.screen_height and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
@@ -356,8 +349,6 @@ init python:
                     # hence piece.color is equivalent to piece.isupper()
                     if piece.isupper() == self.whose_turn:
                         self.src_coord = src_coord
-                        # save legal destinations to be highlighted when redrawing render
-
                         # get legal destinations for redrawing
                         self.legal_dsts = []
                         legal_moves = self.get_legal_moves()

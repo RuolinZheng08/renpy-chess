@@ -10,21 +10,6 @@ define e = Character("Eileen")
 label start:
     scene bg room
     e "Welcome to the Ren'Py Chess Game!"
-
-    ### DEBUG
-
-    window hide
-    $ quick_menu = False
-    $ renpy.block_rollback()
-    call screen chess(fen=STARTING_FEN, player_color=WHITE, movetime=None, depth=None)
-    # avoid rolling back and entering the chess game again
-    $ renpy.block_rollback()
-    $ renpy.checkpoint()
-    $ quick_menu = True
-    window show
-
-    ###
-
     menu:
         "Please select the game mode."
 
