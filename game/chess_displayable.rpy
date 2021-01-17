@@ -1,5 +1,8 @@
 # BEGIN DEF
 
+define CHESS_SCREEN_WIDTH = 1280
+define CHESS_SCREEN_HEIGHT = 720
+
 # use loc to mean UI square and distinguish from logical square
 define LOC_LEN = 90 # length of one side of a loc
 
@@ -198,7 +201,7 @@ init python:
 
         def event(self, ev, x, y, st):
             # use screen height b/c chess displayable is a square
-            if 0 < x < config.screen_height and ev.type == pygame.MOUSEMOTION:
+            if 0 < x < CHESS_SCREEN_HEIGHT and ev.type == pygame.MOUSEMOTION:
                 self.hover_coord = round_coord(x, y)
                 renpy.redraw(self, 0)                
 
@@ -304,6 +307,10 @@ init python:
             return render
 
         def event(self, ev, x, y, st):
+            # do not respond to clicks if the game has ended
+            if self.game_status in [CHECKMATE, STALEMATE, DRAW]:
+                return
+
             # skip GUI interaction for AI's turn in Player vs. AI mode
             if self.uses_stockfish and self.whose_turn != self.player_color:
                 self.chess_subprocess.stdin.write('stockfish_move\n')
@@ -339,7 +346,7 @@ init python:
                 renpy.restart_interaction()
 
             # regular gameplay interaction
-            if 0 < x < config.screen_height and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            if 0 < x < CHESS_SCREEN_HEIGHT and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
 
                 # first click, check if loc is selectable
                 if self.src_coord is None:
