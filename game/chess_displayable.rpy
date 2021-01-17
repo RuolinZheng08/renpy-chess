@@ -1,5 +1,6 @@
 # BEGIN DEF
 
+# this chess game is full-screen when the game resolution is 1280x720
 define CHESS_SCREEN_WIDTH = 1280
 define CHESS_SCREEN_HEIGHT = 720
 
