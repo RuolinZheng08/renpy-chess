@@ -16,9 +16,10 @@ define FILE_LETTERS = ('a', 'b', 'c', 'd', 'e', 'f', 'g', 'h')
 define PROMOTION_RANK_WHITE = 6 # INDEX_MAX - 1
 define PROMOTION_RANK_BLACK = 1 # INDEX_MIN + 1
 
-define COLOR_HOVER = '#00ff0050' # green
-define COLOR_SELECTED = '#0a82ff88' # blue
-define COLOR_LEGAL_DST = '#45c8ff50' # blue, destination of a legal move
+define COLOR_HOVER = '#90ee90aa' # HTML LightGreen
+define COLOR_SELECTED = '#40e0d0aa' # Turquoise
+define COLOR_LEGAL_DST = '#afeeeeaa' # PaleTurquoise
+define COLOR_PREV_MOVE = '#6a5acdaa' # SlateBlue
 define COLOR_WHITE = '#fff'
 
 define TEXT_SIZE = 26
@@ -58,12 +59,15 @@ define WHITE = True
 define BLACK = False
 
 # status code enum
-define CHECKMATE = 1 # chess.WHITE is True i.e. 1 and chess.BLACK is False i.e. 0
-define STALEMATE = 2
-define INCHECK = 3
-define THREEFOLD = 4
-define FIFTYMOVES = 5
-define DRAW = 6 # endgame _return code for stalemate, threefold, fifty-move
+define INCHECK = 1
+define THREEFOLD = 2
+define FIFTYMOVES = 3
+# end game conditions and _return code
+define DRAW = 4
+define CHECKMATE = 5 # chess.WHITE is True i.e. 1 and chess.BLACK is False i.e. 0
+define STALEMATE = 6
+define RESIGN = 7
+
 # END ENUM
 # END DEF
 
@@ -264,12 +268,15 @@ init python:
             # displayables
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
             self.legal_dst_img = Solid(COLOR_LEGAL_DST, xsize=LOC_LEN, ysize=LOC_LEN)
+            self.highlight_img = Solid(COLOR_PREV_MOVE, xsize=LOC_LEN, ysize=LOC_LEN)
             self.piece_imgs = self.load_piece_imgs()
 
             # coordinate tuples for blitting selected loc and generating moves
             self.src_coord = None
             # a list of legal destinations for the currently selected piece
             self.legal_dsts = []
+            # highlight the two squares involved in the previous move
+            self.highlighted_squares = []
 
             # if True, show promotion UI screen
             self.show_promotion_ui = False
@@ -282,16 +289,6 @@ init python:
         def render(self, width, height, st, at):
             render = renpy.Render(width, height)
 
-            # render pieces on board
-            for file_idx in range(INDEX_MIN, INDEX_MAX + 1):
-                for rank_idx in range(INDEX_MIN, INDEX_MAX + 1):
-                    # the symbol P, N, B, R, Q or K for white pieces or the lower-case variants for the black pieces
-                    piece = self.get_piece_at(file_idx, rank_idx)
-                    if piece in self.piece_imgs: # piece could be None
-                        piece_coord = indices_to_coord(file_idx, rank_idx, bottom_color=self.bottom_color)
-                        render.place(self.piece_imgs[piece], 
-                            x=piece_coord[0], y=piece_coord[1])
-
             # render selected loc
             if self.src_coord:
                 render.place(self.selected_img, 
@@ -302,6 +299,20 @@ init python:
             for file_idx, rank_idx in self.legal_dsts:
                 square_coord = indices_to_coord(file_idx, rank_idx, bottom_color=self.bottom_color)
                 render.place(self.legal_dst_img, x=square_coord[0], y=square_coord[1])
+            # render the highlighted move, represented as [(src_file, src_rank), (dst_file, dst_rank)]
+            for file_idx, rank_idx in self.highlighted_squares:
+                square_coord = indices_to_coord(file_idx, rank_idx, bottom_color=self.bottom_color)
+                render.place(self.highlight_img, x=square_coord[0], y=square_coord[1])
+
+            # render pieces on board
+            for file_idx in range(INDEX_MIN, INDEX_MAX + 1):
+                for rank_idx in range(INDEX_MIN, INDEX_MAX + 1):
+                    # the symbol P, N, B, R, Q or K for white pieces or the lower-case variants for the black pieces
+                    piece = self.get_piece_at(file_idx, rank_idx)
+                    if piece in self.piece_imgs: # piece could be None
+                        piece_coord = indices_to_coord(file_idx, rank_idx, bottom_color=self.bottom_color)
+                        render.place(self.piece_imgs[piece], 
+                            x=piece_coord[0], y=piece_coord[1])
 
             renpy.restart_interaction() # force refresh the screen
 
@@ -317,8 +328,11 @@ init python:
                 self.chess_subprocess.stdin.write('stockfish_move\n')
                 move = self.chess_subprocess.stdout.readline().strip()
                 # REFACTOR: consolidate with interactive move
+                # play_move_audio must be called before make_move, otherwise the board would have
+                # been already changed
                 self.play_move_audio(move)
                 self.make_move(move)
+                self.add_highlight_move(move)
                 self.history.append(move)
                 renpy.redraw(self, 0) # redraw pieces
                 self.check_game_status() # update self.game_status
@@ -422,6 +436,7 @@ init python:
                     if move in self.get_legal_moves():
                         self.play_move_audio(move)
                         self.make_move(move)
+                        self.add_highlight_move(move)
                         self.history.append(move)
                         self.src_coord = None
                         self.legal_dsts = []
@@ -437,8 +452,8 @@ init python:
 
             for piece in PIECE_TYPES:
                 white_piece, black_piece = piece.upper(), piece
-                white_path = CHESSPIECES_PATH + 'w' + white_piece + '.png'
-                black_path = CHESSPIECES_PATH + 'b' + black_piece + '.png'
+                white_path = os.path.join(CHESSPIECES_PATH, 'w' + white_piece + '.png')
+                black_path = os.path.join(CHESSPIECES_PATH, 'b' + black_piece + '.png')
                 piece_imgs[white_piece] = Image(white_path)
                 piece_imgs[black_piece] = Image(black_path)
 
@@ -512,6 +527,10 @@ init python:
                 Return(DRAW)], 
                 no_action=Hide('confirm'))
             renpy.restart_interaction()
+
+        def add_highlight_move(self, move):
+            src_file, src_rank, dst_file, dst_rank = move_uci_to_file_rank(move)
+            self.highlighted_squares = [(src_file, src_rank), (dst_file, dst_rank)]
 
         # helper functions for communicating with the subprocess
         def get_piece_at(self, file_idx, rank_idx):

@@ -48,12 +48,13 @@ class ChessEngine():
 
     def __init__(self):
         # enum game_status as defined in chess_displayable.rpy
-        self.CHECKMATE = 1
-        self.STALEMATE = 2
-        self.INCHECK = 3
-        self.THREEFOLD = 4
-        self.FIFTYMOVES = 5
-        self.DRAW = 6
+        self.INCHECK = 1
+        self.THREEFOLD = 2
+        self.FIFTYMOVES = 3
+        self.DRAW = 4
+        self.CHECKMATE = 5
+        self.STALEMATE = 6
+        self.RESIGN = 7
 
         self.board = None # the chess board object
         self.stockfish = None # chess AI engine
