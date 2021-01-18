@@ -88,15 +88,8 @@ style promotion_piece_text is text:
 
 # text button styles for the chess screen
 # used for the resign button and the undo-last-move button
-style chess_button is button
-style chess_button_text is text:
-    font 'DejaVuSans.ttf'
-    size TEXT_SIZE
-    color '#aaaaaa' # gray
-    hover_color COLOR_WHITE
-
-style flip_board is button
-style flip_board_text is text:
+style control_button is button
+style control_button_text is text:
     font 'DejaVuSans.ttf'
     size TEXT_BUTTON_SIZE
     color '#aaaaaa' # gray
@@ -139,24 +132,31 @@ screen chess(fen, player_color, movetime, depth):
                 text (move) color COLOR_WHITE xalign 0.5
 
     # left bottom
-    fixed xpos 50 ypos 560 spacing 10:
+    fixed xpos 20 ypos 500:
         vbox:
-            textbutton 'Resign':
-                action [Confirm('Would you like to resign?', 
-                    yes=[Function(chess_displayable.kill_chess_subprocess), 
-                    # if the current player resigns, the winner will be the opposite side
-                    SetField(chess_displayable, 'winner', not chess_displayable.whose_turn),
-                    Return(RESIGN)])]
-                style 'chess_button' xalign 0.5
+            hbox spacing 5:
+                text 'Resign' color COLOR_WHITE yalign 0.5
+                textbutton '⚐':
+                    action [Confirm('Would you like to resign?', 
+                        yes=[Function(chess_displayable.kill_chess_subprocess), 
+                        # if the current player resigns, the winner will be the opposite side
+                        SetField(chess_displayable, 'winner', not chess_displayable.whose_turn),
+                        Return(RESIGN)])]
+                    style 'control_button' yalign 0.5
 
-            null height 20
+            hbox spacing 5:
+                text 'Undo move' color COLOR_WHITE yalign 0.5
+                textbutton '⟲':
+                    action [Function(chess_displayable.undo_move)]
+                    style 'control_button' yalign 0.5
 
-            text 'Flip board view' color COLOR_WHITE xalign 0.5
-            textbutton '↑↓':
-                action [Play('sound', AUDIO_FLIP_BOARD),
-                ToggleField(chess_displayable, 'bottom_color'),
-                SetField(chess_displayable, 'has_flipped_board', True)]
-                style 'flip_board' xalign 0.5
+            hbox spacing 5:
+                text 'Flip board view' color COLOR_WHITE yalign 0.5
+                textbutton '↑↓':
+                    action [Play('sound', AUDIO_FLIP_BOARD),
+                    ToggleField(chess_displayable, 'bottom_color'),
+                    SetField(chess_displayable, 'has_flipped_board', True)]
+                    style 'control_button' yalign 0.5
 
     # middle panel for chess displayable
     fixed xpos 280:
@@ -561,13 +561,28 @@ init python:
 
         def undo_move(self):
             """
-            inverse of make_move
+            inverse of make_move, proceed only if there is something in history
             1. play the undo move audio
             2. communicate the undoing to the subprocess
-            3. 
-            4. remove the move from the history
+            3. remove the move from the history      
             """
-            pass
+            if not self.history:
+                return
+                
+            # TODO
+            # renpy.sound.play(AUDIO_UNDO)
+            self.pop_move()
+            # for redrawing
+            self.history.pop()
+            self.src_coord = None
+            self.legal_dsts = []
+            self.highlighted_squares = []
+            renpy.redraw(self, 0)
+
+            self.check_game_status()
+            self.show_promotion_ui = False
+            self.promotion = None
+
         # END
 
         # helper functions for communicating with the subprocess
@@ -595,9 +610,11 @@ init python:
 
         def pop_move(self):
             """
-            undo the last move
+            inverse of push_move, undo the last move
             """
             self.chess_subprocess.stdin.write('pop_move\n')
+            # update whose_turn upon undoing
+            self.whose_turn = eval(self.chess_subprocess.stdout.readline().strip())
 
         def kill_chess_subprocess(self):
             self.chess_subprocess.stdin.write('quit\n')

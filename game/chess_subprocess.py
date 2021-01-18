@@ -130,5 +130,10 @@ class ChessEngine():
         self.board.push(move)
         print(self.board.turn)
 
+    def pop_move(self):
+        # this should not raise an IndexError as the logic has been handled by the caller
+        self.board.pop()
+        print(self.board.turn)
+
 if __name__ == '__main__':
     main()
