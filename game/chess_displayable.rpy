@@ -308,7 +308,7 @@ init python:
             return render
 
         def event(self, ev, x, y, st):
-            # do not respond to clicks if the game has ended
+            # ignore clicks if the game has ended
             if self.game_status in [CHECKMATE, STALEMATE, DRAW]:
                 return
 
