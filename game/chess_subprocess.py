@@ -38,8 +38,10 @@ def main():
             chess_engine.get_is_capture(args)
         elif args[0] == 'legal_moves':
             chess_engine.get_legal_moves()
-        elif args[0] == 'make_move':
-            chess_engine.set_move(args)
+        elif args[0] == 'push_move':
+            chess_engine.push_move(args)
+        elif args[0] == 'pop_move':
+            chess_engine.pop_move()
 
         sys.stdout.flush()
 
@@ -122,7 +124,7 @@ class ChessEngine():
     def get_legal_moves(self):
         print('#'.join([move.uci() for move in self.board.legal_moves]))
 
-    def set_move(self, args):
+    def push_move(self, args):
         move_uci = args[1]
         move = chess.Move.from_uci(move_uci)
         self.board.push(move)

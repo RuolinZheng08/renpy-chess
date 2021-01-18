@@ -69,7 +69,7 @@ label start:
         if player_color is not None: # PvC
             if _return == player_color:
                 e "Congratulations, player!"
-            elseT:
+            else:
                 e "Better luck next time, player."
 
     return

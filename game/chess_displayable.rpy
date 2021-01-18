@@ -347,15 +347,7 @@ init python:
             if self.uses_stockfish and self.whose_turn != self.player_color:
                 self.chess_subprocess.stdin.write('stockfish_move\n')
                 move = self.chess_subprocess.stdout.readline().strip()
-                # REFACTOR: consolidate with interactive move
-                # play_move_audio must be called before make_move, otherwise the board would have
-                # been already changed
-                self.play_move_audio(move)
                 self.make_move(move)
-                self.add_highlight_move(move)
-                self.history.append(move)
-                renpy.redraw(self, 0) # redraw pieces
-                self.check_game_status() # update self.game_status
                 return
 
             # XXX: in developer mode only, open up the UI for promotion or for claiming draw
@@ -394,13 +386,7 @@ init python:
                     if piece and piece.isupper() == self.whose_turn:
                         self.src_coord = src_coord
                         # get legal destinations for redrawing
-                        self.legal_dsts = []
-                        legal_moves = self.get_legal_moves()
-                        for move in legal_moves:
-                            move_src_file, move_src_rank, move_dst_file, move_dst_rank = move_uci_to_file_rank(move)
-                            # the move originates from the current square
-                            if move_src_file == src_file and move_src_rank == src_rank:
-                                self.legal_dsts.append((move_dst_file, move_dst_rank))
+                        self.get_legal_dsts(src_file, src_rank)
 
                         if self.has_promoting_piece(src_file, src_rank):
                             self.show_promotion_ui = True
@@ -428,14 +414,7 @@ init python:
                         # change selection to the second-click piece
                         self.src_coord = dst_coord
                         src_file, src_rank = dst_file, dst_rank
-                        # get legal destinations for redrawing
-                        self.legal_dsts = []
-                        legal_moves = self.get_legal_moves()
-                        for move in legal_moves:
-                            move_src_file, move_src_rank, move_dst_file, move_dst_rank = move_uci_to_file_rank(move)
-                            # the move originates from the current square
-                            if move_src_file == src_file and move_src_rank == src_rank:
-                                self.legal_dsts.append((move_dst_file, move_dst_rank))
+                        self.get_legal_dsts(src_file, src_rank)  # get legal destinations for redrawing
                         # check if the piece is a promoting pawn
                         if self.has_promoting_piece(src_file, src_rank):
                             self.show_promotion_ui = True
@@ -454,16 +433,9 @@ init python:
                         renpy.notify('Please select a piece type to promote to')
 
                     if move in self.get_legal_moves():
-                        self.play_move_audio(move)
                         self.make_move(move)
-                        self.add_highlight_move(move)
-                        self.history.append(move)
-                        self.src_coord = None
-                        self.legal_dsts = []
-                        renpy.redraw(self, 0)
-                        self.check_game_status()
-                        self.show_promotion_ui = False
-                        self.promotion = None
+                    # otherwise the piece selection remains unchanged
+                    # waiting for the player to select a valid move
                        
         # helpers
         def load_piece_imgs(self):
@@ -552,6 +524,52 @@ init python:
             src_file, src_rank, dst_file, dst_rank = move_uci_to_file_rank(move)
             self.highlighted_squares = [(src_file, src_rank), (dst_file, dst_rank)]
 
+        # START function definitions that make call to helper functions that communicate with the subprocess
+        def get_legal_dsts(self, src_file, src_rank):
+            """
+            filter the destination squares from the legal moves
+            """
+            self.legal_dsts = []
+            legal_moves = self.get_legal_moves()
+            for move in legal_moves:
+                move_src_file, move_src_rank, move_dst_file, move_dst_rank = move_uci_to_file_rank(move)
+                # the move originates from the current square
+                if move_src_file == src_file and move_src_rank == src_rank:
+                    print('move', move)
+                    self.legal_dsts.append((move_dst_file, move_dst_rank))
+
+        def make_move(self, move):
+            """
+            1. play the corresponding move audio
+            2. communicate the move to the subprocess
+            3. highlight the src and dst squares of the move
+            4. append the move to history
+            5. 
+            """
+            self.play_move_audio(move)
+            self.push_move(move)
+            self.add_highlight_move(move)
+            # for redrawing
+            self.history.append(move)
+            self.src_coord = None
+            self.legal_dsts = []
+            renpy.redraw(self, 0)
+
+            self.check_game_status()
+            self.show_promotion_ui = False
+            self.promotion = None
+
+        def undo_move(self):
+            """
+            inverse of make_move
+            1. play the undo move audio
+            2. communicate the undoing to the subprocess
+            3. 
+            4. remove the move from the history
+            """
+            pass
+        # END
+
         # helper functions for communicating with the subprocess
         def get_piece_at(self, file_idx, rank_idx):
             """
@@ -569,11 +587,17 @@ init python:
             legal_moves = self.chess_subprocess.stdout.readline().strip().split('#')
             return legal_moves
 
-        def make_move(self, move):
+        def push_move(self, move):
             # update board in the subprocess
-            self.chess_subprocess.stdin.write('#'.join(['make_move', move, '\n']))
+            self.chess_subprocess.stdin.write('#'.join(['push_move', move, '\n']))
             # update whose_turn upon a valid move
             self.whose_turn = eval(self.chess_subprocess.stdout.readline().strip())
+
+        def pop_move(self):
+            """
+            undo the last move
+            """
+            self.chess_subprocess.stdin.write('pop_move\n')
 
         def kill_chess_subprocess(self):
             self.chess_subprocess.stdin.write('quit\n')
