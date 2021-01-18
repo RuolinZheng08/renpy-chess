@@ -126,9 +126,9 @@ screen chess(fen, player_color, movetime, depth):
 
             null height 50
 
-            text 'Most recent moves' color COLOR_WHITE xalign 0.5
+            text 'Most recent moves' style 'game_status_text' xalign 0.5
             for move in chess_displayable.history:
-                text (move) color COLOR_WHITE xalign 0.5
+                text (move) style 'game_status_text' xalign 0.5
 
     # left bottom
     fixed xpos 20 ypos 500:
