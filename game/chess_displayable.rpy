@@ -38,7 +38,7 @@ define AUDIO_CAPTURE = 'audio/capture.wav'
 define AUDIO_PROMOTION = 'audio/promotion.wav'
 define AUDIO_CHECK = 'audio/check.wav'
 define AUDIO_CHECKMATE = 'audio/checkmate.wav'
-define AUDIO_DRAW = 'audio/draw.wav' # used for stalemate, threefold, fifty-move
+define AUDIO_DRAW = 'audio/draw.wav' # used for resign, stalemate, threefold, fifty-move
 define AUDIO_FLIP_BOARD = 'audio/flip_board.wav'
 
 # number of history moves to display
@@ -66,7 +66,6 @@ define FIFTYMOVES = 3
 define DRAW = 4
 define CHECKMATE = 5 # chess.WHITE is True i.e. 1 and chess.BLACK is False i.e. 0
 define STALEMATE = 6
-define RESIGN = 7
 
 # END ENUM
 # END DEF
@@ -138,10 +137,10 @@ screen chess(fen, player_color, movetime, depth):
                 text 'Resign' color COLOR_WHITE yalign 0.5
                 textbutton '⚐':
                     action [Confirm('Would you like to resign?', 
-                        yes=[Function(chess_displayable.kill_chess_subprocess), 
+                        yes=[Play('sound', AUDIO_DRAW),
+                        Function(chess_displayable.kill_chess_subprocess), 
                         # if the current player resigns, the winner will be the opposite side
-                        SetField(chess_displayable, 'winner', not chess_displayable.whose_turn),
-                        Return(RESIGN)])]
+                        Return(not chess_displayable.whose_turn)])]
                     style 'control_button' yalign 0.5
 
             hbox spacing 5:
@@ -535,7 +534,6 @@ init python:
                 move_src_file, move_src_rank, move_dst_file, move_dst_rank = move_uci_to_file_rank(move)
                 # the move originates from the current square
                 if move_src_file == src_file and move_src_rank == src_rank:
-                    print('move', move)
                     self.legal_dsts.append((move_dst_file, move_dst_rank))
 
         def make_move(self, move):
@@ -562,15 +560,14 @@ init python:
         def undo_move(self):
             """
             inverse of make_move, proceed only if there is something in history
-            1. play the undo move audio
+            1. play the audio for making a move
             2. communicate the undoing to the subprocess
             3. remove the move from the history      
             """
             if not self.history:
                 return
                 
-            # TODO
-            # renpy.sound.play(AUDIO_UNDO)
+            renpy.sound.play(AUDIO_MOVE)
             self.pop_move()
             # for redrawing
             self.history.pop()

@@ -56,7 +56,6 @@ class ChessEngine():
         self.DRAW = 4
         self.CHECKMATE = 5
         self.STALEMATE = 6
-        self.RESIGN = 7
 
         self.board = None # the chess board object
         self.stockfish = None # chess AI engine
