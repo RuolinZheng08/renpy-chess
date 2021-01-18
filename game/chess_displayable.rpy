@@ -564,13 +564,18 @@ init python:
             2. communicate the undoing to the subprocess
             3. remove the move from the history      
             """
-            if not self.history:
+            if not self.history or (self.uses_stockfish and len(self.history) < 2):
                 return
-                
             renpy.sound.play(AUDIO_MOVE)
-            self.pop_move()
+            if self.uses_stockfish: # PvC, undo two moves
+                self.pop_move()
+                self.pop_move()
+                self.history.pop()
+                self.history.pop()
+            else: # PvP, undo one move
+                self.pop_move()
+                self.history.pop()
             # for redrawing
-            self.history.pop()
             self.src_coord = None
             self.legal_dsts = []
             self.highlighted_squares = []
