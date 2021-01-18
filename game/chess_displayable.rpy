@@ -86,6 +86,15 @@ style promotion_piece_text is text:
     hover_color '#555555' # darker gray
     selected_color COLOR_WHITE
 
+# text button styles for the chess screen
+# used for the resign button and the undo-last-move button
+style chess_button is button
+style chess_button_text is text:
+    font 'DejaVuSans.ttf'
+    size TEXT_SIZE
+    color '#aaaaaa' # gray
+    hover_color COLOR_WHITE
+
 style flip_board is button
 style flip_board_text is text:
     font 'DejaVuSans.ttf'
@@ -121,6 +130,7 @@ screen chess(fen, player_color, movetime, depth):
                 text 'Stalemate' style 'game_status_text'
             elif chess_displayable.game_status == INCHECK:
                 text 'In Check' style 'game_status_text'
+            # no need to display DRAW or RESIGN as they immediately return
 
             null height 50
 
@@ -129,8 +139,18 @@ screen chess(fen, player_color, movetime, depth):
                 text (move) color COLOR_WHITE xalign 0.5
 
     # left bottom
-    fixed xpos 60 ypos 600 spacing 10:
+    fixed xpos 50 ypos 560 spacing 10:
         vbox:
+            textbutton 'Resign':
+                action [Confirm('Would you like to resign?', 
+                    yes=[Function(chess_displayable.kill_chess_subprocess), 
+                    # if the current player resigns, the winner will be the opposite side
+                    SetField(chess_displayable, 'winner', not chess_displayable.whose_turn),
+                    Return(RESIGN)])]
+                style 'chess_button' xalign 0.5
+
+            null height 20
+
             text 'Flip board view' color COLOR_WHITE xalign 0.5
             textbutton '↑↓':
                 action [Play('sound', AUDIO_FLIP_BOARD),
@@ -524,7 +544,7 @@ init python:
             renpy.show_screen('confirm', 
                 message=reason + 'Would you like to claim draw?', 
                 yes_action=[Hide('confirm'), Play('sound', AUDIO_DRAW),
-                Return(DRAW)], 
+                Function(chess_displayable.kill_chess_subprocess), Return(DRAW)], 
                 no_action=Hide('confirm'))
             renpy.restart_interaction()
 

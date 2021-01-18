@@ -63,12 +63,13 @@ label start:
 
     if _return == DRAW:
         e "The game ended in a draw."
-    else:
+    else: # RESIGN or CHECKMATE
         $ winner = "White" if _return == WHITE else "Black"
         e "The winner is [winner]."
-        if _return == player_color:
-            e "Congratulations, player!"
-        elif _return is not None:
-            e "Better luck next time, player."
+        if player_color is not None: # PvC
+            if _return == player_color:
+                e "Congratulations, player!"
+            elseT:
+                e "Better luck next time, player."
 
     return
