@@ -1,5 +1,23 @@
 # BEGIN DEF
 
+# directory paths
+# the path of the current directory within game/
+define THIS_PATH = '00-chess-engine/'
+define IMAGE_PATH = 'images/'
+define AUDIO_PATH = 'audio/'
+define BIN_PATH = 'bin/' # stockfish binaries
+define CHESSPIECES_PATH = THIS_PATH + IMAGE_PATH + 'chesspieces/'
+
+# file paths
+define IMG_CHESSBOARD = THIS_PATH + IMAGE_PATH + 'chessboard.png'
+define AUDIO_MOVE = THIS_PATH + AUDIO_PATH + 'move.wav'
+define AUDIO_CAPTURE = THIS_PATH + AUDIO_PATH + 'capture.wav'
+define AUDIO_PROMOTION = THIS_PATH + AUDIO_PATH + 'promotion.wav'
+define AUDIO_CHECK = THIS_PATH + AUDIO_PATH + 'check.wav'
+define AUDIO_CHECKMATE = THIS_PATH + AUDIO_PATH + 'checkmate.wav'
+define AUDIO_DRAW = THIS_PATH + AUDIO_PATH + 'draw.wav' # used for resign, stalemate, threefold, fifty-move
+define AUDIO_FLIP_BOARD = THIS_PATH + AUDIO_PATH + 'flip_board.wav'
+
 # this chess game is full-screen when the game resolution is 1280x720
 define CHESS_SCREEN_WIDTH = 1280
 define CHESS_SCREEN_HEIGHT = 720
@@ -29,17 +47,6 @@ define TEXT_STATUS_COORD = (-260, 80)
 
 # use tuples for immutability
 define PIECE_TYPES = ('p', 'r', 'b', 'n', 'k', 'q')
-
-# file paths
-define CHESSPIECES_PATH = 'images/chesspieces/'
-
-define AUDIO_MOVE = 'audio/move.wav'
-define AUDIO_CAPTURE = 'audio/capture.wav'
-define AUDIO_PROMOTION = 'audio/promotion.wav'
-define AUDIO_CHECK = 'audio/check.wav'
-define AUDIO_CHECKMATE = 'audio/checkmate.wav'
-define AUDIO_DRAW = 'audio/draw.wav' # used for resign, stalemate, threefold, fifty-move
-define AUDIO_FLIP_BOARD = 'audio/flip_board.wav'
 
 # number of history moves to display
 define NUM_HISTORY = 5
@@ -100,7 +107,7 @@ style control_button_text is text:
 
 screen chess(fen, player_color, movetime, depth):
     
-    modal True
+    # modal True
 
     default hover_displayable = HoverDisplayable()
     default chess_displayable = ChessDisplayable(fen=fen, 
@@ -159,7 +166,7 @@ screen chess(fen, player_color, movetime, depth):
 
     # middle panel for chess displayable
     fixed xpos 280:
-        add Image('images/chessboard.png')
+        add Image(IMG_CHESSBOARD)
         add chess_displayable
         add hover_displayable # hover loc over chesspieces
         if chess_displayable.game_status == CHECKMATE:
@@ -242,10 +249,9 @@ init python:
 
             super(ChessDisplayable, self).__init__()
 
-            # self.board = chess.Board(fen=fen)
-            chess_script = os.path.join(renpy.config.gamedir, 'chess_subprocess.py')
+            chess_script = os.path.join(renpy.config.gamedir, THIS_PATH, 'chess_subprocess.py')
             # for importing libraries
-            import_dir = os.path.join(renpy.config.gamedir, 'python-packages')
+            import_dir = os.path.join(renpy.config.gamedir, THIS_PATH, 'python-packages')
 
             startupinfo = None
             if renpy.windows:      
@@ -279,7 +285,7 @@ init python:
                 depth = depth if MIN_DEPTH <= depth <= MAX_DEPTH else MAX_DEPTH
 
                 # load appropraite stockfish binary in subprocess
-                stockfish_path = os.path.abspath(os.path.join(config.gamedir, STOCKFISH))
+                stockfish_path = os.path.abspath(os.path.join(renpy.config.gamedir, THIS_PATH, STOCKFISH))
                 self.chess_subprocess.stdin.write('#'.join([
                     'stockfish', stockfish_path, str(renpy.windows), str(movetime), str(depth), '\n']))
                 # no return code to parse
@@ -442,9 +448,9 @@ init python:
             piece_imgs = {}
 
             for piece in PIECE_TYPES:
+                white_path = os.path.join(CHESSPIECES_PATH, 'w' + piece + '.png')
+                black_path = os.path.join(CHESSPIECES_PATH, 'b' + piece + '.png')
                 white_piece, black_piece = piece.upper(), piece
-                white_path = os.path.join(CHESSPIECES_PATH, 'w' + white_piece + '.png')
-                black_path = os.path.join(CHESSPIECES_PATH, 'b' + black_piece + '.png')
                 piece_imgs[white_piece] = Image(white_path)
                 piece_imgs[black_piece] = Image(black_path)
 
