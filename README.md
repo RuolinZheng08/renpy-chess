@@ -40,7 +40,7 @@ Click on a piece and all of its available moves will be highlighted. Click on an
 
 #### Threefold Repetition: UI for Claiming a Draw
 (Also shows a similar UI choice screen if the fifty-move rule is in effect)
-<img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/threefold.gif" alt="Threefold Repetition" width=600>
+<img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/gif-demo/threefold.gif" alt="Threefold Repetition" width=600>
 
 ## Guide for Integrating into a Ren'Py Project
 
