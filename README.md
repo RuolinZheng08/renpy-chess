@@ -8,7 +8,7 @@ This is a chess GUI built with the [Ren'Py](http://renpy.org/) Visual Novel Engi
 This git branch `renpy-7.3.5` of the project provides support for **Ren'Py SDK <=7.3.5**. It doesn't support Ren'Py 7.4.0 due to the complications Ren'Py 7.4.0 introduced for the purpose of bridging Python 2 and 3. This branch will no longer receive new feature updates. New feature updates will be on the `master` branch which supports **Ren'Py SDK >= 7.4.0**.
 
 ### Gameplay Example: Fool's Mate
-<img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/foolsmate.gif" alt="Gameplay Example" width=600>
+<img src="https://github.com/RuolinZheng08/renpy-chess/blob/renpy-7.3.5/foolsmate.gif" alt="Gameplay Example" width=600>
 
 ## Differences between Ren'Py Chess 1.0 and Ren'Py Chess 2.0
 
@@ -24,20 +24,20 @@ The game supports **Player vs. Player** and **Player vs. Computer**. In PvC, pla
 Click on a piece and all of its available moves will be highlighted in blue. Click on any of the legal destination squares to make a move. Press `Flip board view` to flip the view, with White on the bottom by default.
 
 #### Flip Board View
-<img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/flip_board.gif" alt="Flip Board" width=600>
+<img src="https://github.com/RuolinZheng08/renpy-chess/blob/renpy-7.3.5/flip_board.gif" alt="Flip Board" width=600>
 
 #### Promotion UI
-<img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/promotion.gif" alt="Promotion" width=600>
+<img src="https://github.com/RuolinZheng08/renpy-chess/blob/renpy-7.3.5/promotion.gif" alt="Promotion" width=600>
 
 #### Stalemate
-<img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/stalemate.gif" alt="Stalemate" width=600>
+<img src="https://github.com/RuolinZheng08/renpy-chess/blob/renpy-7.3.5/stalemate.gif" alt="Stalemate" width=600>
 
 #### Player vs. Computer (Stockfish)
-<img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/pvc.gif" alt="Play vs Computer" width=600>
+<img src="https://github.com/RuolinZheng08/renpy-chess/blob/renpy-7.3.5/pvc.gif" alt="Play vs Computer" width=600>
 
 #### Threefold Repetition: UI for Claiming a Draw
 (Also shows a similar UI choice screen if the fifty-move rule is in effect)
-<img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/threefold.gif" alt="Threefold Repetition" width=600>
+<img src="https://github.com/RuolinZheng08/renpy-chess/blob/renpy-7.3.5/threefold.gif" alt="Threefold Repetition" width=600>
 
 ## Guide for Integrating into a Ren'Py Project
 
