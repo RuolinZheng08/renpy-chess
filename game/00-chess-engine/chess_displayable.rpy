@@ -107,7 +107,7 @@ style control_button_text is text:
 
 screen chess(fen, player_color, movetime, depth):
     
-    # modal True
+    modal True
 
     default hover_displayable = HoverDisplayable()
     default chess_displayable = ChessDisplayable(fen=fen, 
@@ -521,7 +521,7 @@ init python:
             renpy.show_screen('confirm', 
                 message=reason + 'Would you like to claim draw?', 
                 yes_action=[Hide('confirm'), Play('sound', AUDIO_DRAW),
-                Function(chess_displayable.kill_chess_subprocess), Return(DRAW)], 
+                Function(self.kill_chess_subprocess), Return(DRAW)], 
                 no_action=Hide('confirm'))
             renpy.restart_interaction()
 
