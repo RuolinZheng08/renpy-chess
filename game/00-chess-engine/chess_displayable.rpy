@@ -408,6 +408,7 @@ init python:
                     # if player selects the same piece, deselect
                     if dst_file == src_file and dst_rank == src_rank:
                         self.src_coord = None
+                        self.show_promotion_ui = False
                         self.legal_dsts = []
                         renpy.redraw(self, 0)
                         return
