@@ -197,30 +197,27 @@ init python:
     # terms like cursor and coord, Stockfish and AI may be used interchangably
 
     import os
-    import stat
     import sys
     import pygame
     from collections import deque # track move history
 
-    # make all stockfish binaries inside BIN_PATH executable
-    bin_dir = os.path.join(renpy.config.gamedir, THIS_PATH, BIN_PATH)
-    for file in os.listdir(bin_dir):
-        file_path = os.path.join(bin_dir, file)
-        st = os.stat(file_path)
-        os.chmod(file_path, st.st_mode | stat.S_IEXEC)
-
     # stockfish engine is OS-dependent
     if renpy.android:
-        STOCKFISH = 'bin/stockfish-10-armv7' # 32 bit
+        STOCKFISH = 'stockfish-10-armv7' # 32 bit
     elif renpy.ios:
-        STOCKFISH = 'bin/stockfish-11-64' # FIXME: no iOS stockfish available
+        STOCKFISH = 'stockfish-11-64' # FIXME: no iOS stockfish available
     elif renpy.linux:
-        STOCKFISH = 'bin/stockfish_20011801_x64'
+        STOCKFISH = 'stockfish_20011801_x64'
     elif renpy.macintosh:
-        STOCKFISH = 'bin/stockfish-11-64'
+        STOCKFISH = 'stockfish-11-64'
     elif renpy.windows:
-        STOCKFISH = 'bin/stockfish_20011801_x64.exe'
-    
+        STOCKFISH = 'stockfish_20011801_x64.exe'
+
+    # mark the Mac and Linux stockfish binaries as executable
+    stockfish_dir = os.path.join('game', THIS_PATH, BIN_PATH)
+    build.executable(os.path.join(stockfish_dir, 'stockfish-11-64')) # mac
+    build.executable(os.path.join(stockfish_dir, 'stockfish_20011801_x64')) # linux
+
     class HoverDisplayable(renpy.Displayable):
         """
         Highlights the hovered loc in green
@@ -293,7 +290,7 @@ init python:
                 depth = depth if MIN_DEPTH <= depth <= MAX_DEPTH else MAX_DEPTH
 
                 # load appropraite stockfish binary in subprocess
-                stockfish_path = os.path.abspath(os.path.join(renpy.config.gamedir, THIS_PATH, STOCKFISH))
+                stockfish_path = os.path.abspath(os.path.join(renpy.config.gamedir, THIS_PATH, BIN_PATH, STOCKFISH))
                 self.chess_subprocess.stdin.write('#'.join([
                     'stockfish', stockfish_path, str(renpy.windows), str(movetime), str(depth), '\n']))
                 # no return code to parse
