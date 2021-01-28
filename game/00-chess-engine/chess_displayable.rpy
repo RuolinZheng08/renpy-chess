@@ -197,9 +197,17 @@ init python:
     # terms like cursor and coord, Stockfish and AI may be used interchangably
 
     import os
+    import stat
     import sys
     import pygame
     from collections import deque # track move history
+
+    # make all stockfish binaries inside BIN_PATH executable
+    bin_dir = os.path.join(renpy.config.gamedir, THIS_PATH, BIN_PATH)
+    for file in os.listdir(bin_dir):
+        file_path = os.path.join(bin_dir, file)
+        st = os.stat(file_path)
+        os.chmod(file_path, st.st_mode | stat.S_IEXEC)
 
     # stockfish engine is OS-dependent
     if renpy.android:
