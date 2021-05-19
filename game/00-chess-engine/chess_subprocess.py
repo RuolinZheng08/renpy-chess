@@ -1,6 +1,4 @@
-import os
 import sys
-import time
 import subprocess
 
 import_dir = sys.argv[1]
