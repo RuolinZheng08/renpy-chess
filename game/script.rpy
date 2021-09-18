@@ -15,11 +15,45 @@ label start:
         "Please select the game mode."
 
         "Player vs. Player":
+            $ stockfish = None # no need for AI
             $ player_color = None # None for Player vs. Player
             $ movetime = None
             $ depth = None
 
         "Player vs. Computer":
+            # initialize stockfish for the chess AI
+            python:
+                import os
+                import chess
+                import chess.uci
+
+                # stockfish engine is OS-dependent
+                if renpy.android:
+                    STOCKFISH = 'bin/stockfish-10-armv7' # 32 bit
+                elif renpy.ios:
+                    STOCKFISH = 'bin/stockfish-11-64' # FIXME: no iOS stockfish available
+                elif renpy.linux:
+                    STOCKFISH = 'bin/stockfish_20011801_x64'
+                elif renpy.macintosh:
+                    STOCKFISH = 'bin/stockfish-11-64'
+                elif renpy.windows:
+                    STOCKFISH = 'bin/stockfish_20011801_x64.exe'
+
+                # get the global absolute path of the stockfish engine binary
+                stockfish_path = os.path.abspath(os.path.join(renpy.config.gamedir, STOCKFISH))
+
+                startupinfo = None
+                # stop stockfish from opening up shell
+                # https://stackoverflow.com/a/63538680
+                if renpy.windows:
+                    import subprocess
+                    startupinfo = subprocess.STARTUPINFO()
+                    startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
+
+                stockfish = chess.uci.popen_engine(stockfish_path, startupinfo=startupinfo)
+                # now we are ready to use the stockfish variable when constructing the minigame screen
+
+            # initialize other variables used by the stockfish engine in stockfish.go()
             $ movetime = 2000
 
             menu:
@@ -51,7 +85,7 @@ label start:
     $ renpy.block_rollback()
 
     $ fen = chess.STARTING_FEN
-    call screen chess(fen, player_color, movetime, depth)
+    call screen chess(stockfish, fen, player_color, movetime, depth)
 
     # avoid rolling back and entering the chess game again
     $ renpy.block_rollback()

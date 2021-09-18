@@ -75,13 +75,17 @@ style flip_board_text is text:
 
 # BEGIN SCREEN
 
-screen chess(fen, player_color, movetime, depth):
+screen chess(stockfish, fen, player_color, movetime, depth):
     
     modal True
 
     default hover_displayable = HoverDisplayable()
-    default chess_displayable = ChessDisplayable(fen=fen, 
-        player_color=player_color, movetime=movetime, depth=depth)
+    default chess_displayable = ChessDisplayable(
+        stockfish,
+        fen=fen, 
+        player_color=player_color, 
+        movetime=movetime, 
+        depth=depth)
 
     add Solid('#000') # black
 
@@ -123,9 +127,16 @@ screen chess(fen, player_color, movetime, depth):
         add hover_displayable # hover loc over chesspieces
         if chess_displayable.game_status == CHECKMATE:
             # use a timer so the player can see the screen once again
-            timer 4.0 action Return(chess_displayable.winner)
+            timer 4.0 action [
+            Function(callable=chess_displayable.kill_stockfish),
+            Return(chess_displayable.winner)
+            ]
+
         elif chess_displayable.game_status == STALEMATE:
-            timer 4.0 action Return(DRAW)
+            timer 4.0 action [
+            Function(callable=chess_displayable.kill_stockfish),
+            Return(DRAW)
+            ]
 
     # right panel for promotion selection
     showif chess_displayable.show_promotion_ui:
@@ -150,22 +161,9 @@ init python:
 
     # https://python-chess.readthedocs.io/en/v0.23.11/
     import chess
-    import chess.uci
     import pygame
     import os
     from collections import deque # track move history
-
-    # stockfish engine is OS-dependent
-    if renpy.android:
-        STOCKFISH = 'bin/stockfish-10-armv7' # 32 bit
-    elif renpy.ios:
-        STOCKFISH = 'bin/stockfish-11-64' # FIXME: no iOS stockfish available
-    elif renpy.linux:
-        STOCKFISH = 'bin/stockfish_20011801_x64'
-    elif renpy.macintosh:
-        STOCKFISH = 'bin/stockfish-11-64'
-    elif renpy.windows:
-        STOCKFISH = 'bin/stockfish_20011801_x64.exe'
     
     class HoverDisplayable(renpy.Displayable):
         """
@@ -197,7 +195,7 @@ init python:
         Else, use Player vs. Stockfish mode
         player_color: None, chess.WHITE, chess.BLACK
         """
-        def __init__(self, fen=chess.STARTING_FEN, player_color=None, movetime=2000, depth=10):
+        def __init__(self, stockfish, fen=chess.STARTING_FEN, player_color=None, movetime=2000, depth=10):
             super(ChessDisplayable, self).__init__()
 
             self.board = chess.Board(fen=fen)
@@ -207,26 +205,15 @@ init python:
             self.history = deque([], NUM_HISTORY)
 
             self.player_color = None
-            if player_color is None: # player vs player
+            if stockfish is None: # player vs player
                 self.bottom_color = chess.WHITE # white on the bottom of screen by default
                 self.stockfish = None # no AI
 
             else: # player vs computer
                 self.bottom_color = player_color # player color on the bottom
-
                 self.player_color = player_color
-                stockfish_path = os.path.abspath(os.path.join(config.basedir, 'game', STOCKFISH))
 
-                startupinfo = None
-                # stop stockfish from opening up shell
-                # https://stackoverflow.com/a/63538680
-                if renpy.windows:
-                    import subprocess
-                    startupinfo = subprocess.STARTUPINFO()
-                    startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
-
-                self.stockfish = chess.uci.popen_engine(stockfish_path, startupinfo=startupinfo)
-
+                self.stockfish = stockfish
                 self.stockfish.uci()
 
                 self.stockfish.position(self.board)
@@ -391,6 +378,9 @@ init python:
                         self.promotion = None
 
         # helpers
+        def kill_stockfish(self):
+            self.stockfish.quit()
+
         def load_piece_imgs(self):
             # white pieces represented as P, N, K, etc. and black p, n, k, etc.
             piece_imgs = {}
