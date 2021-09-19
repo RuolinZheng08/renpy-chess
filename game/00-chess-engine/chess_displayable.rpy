@@ -105,13 +105,18 @@ style control_button_text is text:
 
 # BEGIN SCREEN
 
-screen chess(fen, player_color, movetime, depth):
+screen chess(chess_subprocess, fen, player_color, movetime, depth):
     
     modal True
 
     default hover_displayable = HoverDisplayable()
-    default chess_displayable = ChessDisplayable(fen=fen, 
-        player_color=player_color, movetime=movetime, depth=depth)
+    default chess_displayable = ChessDisplayable(
+        chess_subprocess,
+        fen=fen, 
+        player_color=player_color, 
+        movetime=movetime, 
+        depth=depth
+        )
 
     add Solid('#000') # black
 
@@ -171,9 +176,15 @@ screen chess(fen, player_color, movetime, depth):
         add hover_displayable # hover loc over chesspieces
         if chess_displayable.game_status == CHECKMATE:
             # use a timer so the player can see the screen once again
-            timer 4.0 action [Function(chess_displayable.kill_chess_subprocess), Return(chess_displayable.winner)]
+            timer 4.0 action [
+            Function(chess_displayable.kill_chess_subprocess), 
+            Return(chess_displayable.winner)
+            ]
         elif chess_displayable.game_status == STALEMATE:
-            timer 4.0 action [Function(chess_displayable.kill_chess_subprocess), Return(DRAW)]
+            timer 4.0 action [
+            Function(chess_displayable.kill_chess_subprocess), 
+            Return(DRAW)
+            ]
 
     # right panel for promotion selection
     showif chess_displayable.show_promotion_ui:
@@ -248,27 +259,11 @@ init python:
         Else, use Player vs. Stockfish mode
         player_color: None, chess.WHITE, chess.BLACK
         """
-        def __init__(self, fen=STARTING_FEN, player_color=None, movetime=2000, depth=10):
-
-            import subprocess # for communicating with the chess engine
-
+        def __init__(self, chess_subprocess, fen=STARTING_FEN, player_color=None, movetime=2000, depth=10):
             super(ChessDisplayable, self).__init__()
 
-            chess_script = os.path.join(renpy.config.gamedir, THIS_PATH, 'chess_subprocess.py')
-            # for importing libraries
-            import_dir = os.path.join(renpy.config.gamedir, THIS_PATH, 'python-packages')
-
-            startupinfo = None
-            if renpy.windows:      
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
-            self.chess_subprocess = subprocess.Popen(
-                [sys.executable, chess_script, import_dir],
-                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                startupinfo=startupinfo)
-            
-            self.chess_subprocess.stdin.write('#'.join(['fen', fen, '\n']))
-            # no return code to parse
+            self.chess_subprocess = chess_subprocess
+            self.has_initialized_chess_subprocess = False
 
             self.whose_turn = WHITE
             self.has_flipped_board = False # for flipping board view
@@ -288,12 +283,6 @@ init python:
                 # validate stockfish params movetime and depth
                 movetime = movetime if MIN_MOVETIME <= movetime <= MAX_MOVETIME else MAX_MOVETIME
                 depth = depth if MIN_DEPTH <= depth <= MAX_DEPTH else MAX_DEPTH
-
-                # load appropraite stockfish binary in subprocess
-                stockfish_path = os.path.abspath(os.path.join(renpy.config.gamedir, THIS_PATH, BIN_PATH, STOCKFISH))
-                self.chess_subprocess.stdin.write('#'.join([
-                    'stockfish', stockfish_path, str(renpy.windows), str(movetime), str(depth), '\n']))
-                # no return code to parse
                 
             # displayables
             self.selected_img = Solid(COLOR_SELECTED, xsize=LOC_LEN, ysize=LOC_LEN)
@@ -317,6 +306,21 @@ init python:
             self.winner = None # None for stalemate
 
         def render(self, width, height, st, at):
+            # first call to render will initialize the board
+            # this is because any communication with the subprocess
+            # must be taken out of the init method of the displayable
+            if not self.has_initialized_chess_subprocess:
+                self.chess_subprocess.stdin.write('#'.join(['fen', fen, '\n']))
+                # no return code to parse
+                self.has_initialized_chess_subprocess = True
+
+                if self.uses_stockfish: # Player vs. Computer
+                    # load appropraite stockfish binary in subprocess
+                    stockfish_path = os.path.abspath(os.path.join(renpy.config.gamedir, THIS_PATH, BIN_PATH, STOCKFISH))
+                    self.chess_subprocess.stdin.write('#'.join([
+                        'stockfish', stockfish_path, str(renpy.windows), str(movetime), str(depth), '\n']))
+                    # no return code to parse
+
             render = renpy.Render(width, height)
 
             # render selected loc
@@ -403,6 +407,8 @@ init python:
                             self.promotion = None
 
                         renpy.redraw(self, 0)
+                    if piece and piece.isupper() != self.whose_turn:
+                        renpy.notify(message='not your turn!')
 
                 # second click, check if should deselect
                 else:

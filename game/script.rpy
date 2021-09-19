@@ -10,7 +10,10 @@ define e = Character("Eileen")
 label start:
     scene bg room
     e "Welcome to the Ren'Py Chess Game!"
+
+    # board notation
     $ fen = STARTING_FEN
+
     menu:
         "Please select the game mode."
 
@@ -20,6 +23,7 @@ label start:
             $ depth = None
 
         "Player vs. Computer":
+            # initialize other variables used by the stockfish engine in stockfish.go()
             $ movetime = 2000
 
             menu:
@@ -47,10 +51,32 @@ label start:
     window hide
     $ quick_menu = False
 
+    # initialize subprocess to communicate with the chess engine
+    # THIS_PATH is defined in chess_displayable.rpy
+    # define THIS_PATH = '00-chess-engine/'
+    python:
+        chess_script = os.path.join(renpy.config.gamedir, THIS_PATH, 'chess_subprocess.py')
+        # for importing libraries
+        import_dir = os.path.join(renpy.config.gamedir, THIS_PATH, 'python-packages')
+
+        import subprocess # for communicating with the chess engine
+        # other imports are in chess_displayable.rpy
+
+        startupinfo = None
+        if renpy.windows:      
+            startupinfo = subprocess.STARTUPINFO()
+            startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
+
+        # remember to kill this process after use to prevent memory leak
+        chess_subprocess = subprocess.Popen(
+            [sys.executable, chess_script, import_dir],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            startupinfo=startupinfo)
+
     # avoid rolling back and losing chess game state
     $ renpy.block_rollback()
 
-    call screen chess(fen, player_color, movetime, depth)
+    call screen chess(chess_subprocess, fen, player_color, movetime, depth)
 
     # avoid rolling back and entering the chess game again
     $ renpy.block_rollback()
@@ -71,5 +97,8 @@ label start:
                 e "Congratulations, player!"
             else:
                 e "Better luck next time, player."
+
+    # kill the chess subprocess to prevent memory leak
+    $ chess_subprocess.kill()
 
     return
