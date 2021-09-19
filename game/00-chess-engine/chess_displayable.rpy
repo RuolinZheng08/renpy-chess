@@ -407,8 +407,6 @@ init python:
                             self.promotion = None
 
                         renpy.redraw(self, 0)
-                    if piece and piece.isupper() != self.whose_turn:
-                        renpy.notify(message='not your turn!')
 
                 # second click, check if should deselect
                 else:
