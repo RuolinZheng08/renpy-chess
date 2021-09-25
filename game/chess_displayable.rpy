@@ -154,16 +154,21 @@ screen chess(stockfish, fen, player_color, movetime, depth):
 
 # END SCREEN
 
-init python:
+init -1 python:
 
     # use UCI for move notations and FEN for board and move history
     # terms like cursor and coord, Stockfish and AI may be used interchangably
 
+    import os
     # https://python-chess.readthedocs.io/en/v0.23.11/
     import chess
+    import chess.uci
+
     import pygame
-    import os
     from collections import deque # track move history
+
+    if renpy.windows:
+        import subprocess
     
     class HoverDisplayable(renpy.Displayable):
         """
