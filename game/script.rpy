@@ -59,9 +59,6 @@ label start:
         # for importing libraries
         import_dir = os.path.join(renpy.config.gamedir, THIS_PATH, 'python-packages')
 
-        import subprocess # for communicating with the chess engine
-        # other imports are in chess_displayable.rpy
-
         startupinfo = None
         if renpy.windows:      
             startupinfo = subprocess.STARTUPINFO()
@@ -76,7 +73,16 @@ label start:
     # avoid rolling back and losing chess game state
     $ renpy.block_rollback()
 
+    # disable Esc key menu to prevent the player from saving the game
+    $ _game_menu_screen = None
+
     call screen chess(chess_subprocess, fen, player_color, movetime, depth)
+
+    # kill the chess subprocess to prevent memory leak
+    $ chess_subprocess.kill()
+
+    # re-enable the Esc key menu
+    $ _game_menu_screen = 'save'
 
     # avoid rolling back and entering the chess game again
     $ renpy.block_rollback()
@@ -97,8 +103,5 @@ label start:
                 e "Congratulations, player!"
             else:
                 e "Better luck next time, player."
-
-    # kill the chess subprocess to prevent memory leak
-    $ chess_subprocess.kill()
 
     return

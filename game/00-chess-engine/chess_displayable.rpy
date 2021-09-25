@@ -210,6 +210,7 @@ init python:
     import os
     import sys
     import pygame
+    import subprocess # for communicating with the chess engine
     from collections import deque # track move history
 
     # stockfish engine is OS-dependent
