@@ -5,6 +5,25 @@
 
 define e = Character("Eileen")
 
+# initialize subprocess to communicate with the chess engine
+# THIS_PATH is defined in chess_displayable.rpy
+# define THIS_PATH = '00-chess-engine/'
+init python:
+    chess_script = os.path.join(renpy.config.gamedir, THIS_PATH, 'chess_subprocess.py')
+    # for importing libraries
+    import_dir = os.path.join(renpy.config.gamedir, THIS_PATH, 'python-packages')
+
+    startupinfo = None
+    if renpy.windows:      
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
+
+    # remember to kill this process after use to prevent memory leak
+    chess_subprocess = subprocess.Popen(
+        [sys.executable, chess_script, import_dir],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        startupinfo=startupinfo)
+
 # The game starts here.
 
 label start:
@@ -50,25 +69,6 @@ label start:
 
     window hide
     $ quick_menu = False
-
-    # initialize subprocess to communicate with the chess engine
-    # THIS_PATH is defined in chess_displayable.rpy
-    # define THIS_PATH = '00-chess-engine/'
-    python:
-        chess_script = os.path.join(renpy.config.gamedir, THIS_PATH, 'chess_subprocess.py')
-        # for importing libraries
-        import_dir = os.path.join(renpy.config.gamedir, THIS_PATH, 'python-packages')
-
-        startupinfo = None
-        if renpy.windows:      
-            startupinfo = subprocess.STARTUPINFO()
-            startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
-
-        # remember to kill this process after use to prevent memory leak
-        chess_subprocess = subprocess.Popen(
-            [sys.executable, chess_script, import_dir],
-            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            startupinfo=startupinfo)
 
     # avoid rolling back and losing chess game state
     $ renpy.block_rollback()
