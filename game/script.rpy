@@ -19,6 +19,7 @@ init python:
         startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
 
     # remember to kill this process after use to prevent memory leak
+    # but don't kill it unless there is no more chess game to play in your VN
     chess_subprocess = subprocess.Popen(
         [sys.executable, chess_script, import_dir],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -30,6 +31,7 @@ label start:
     scene bg room
     e "Welcome to the Ren'Py Chess Game!"
 
+label chess_game:
     # board notation
     $ fen = STARTING_FEN
 
@@ -78,9 +80,6 @@ label start:
 
     call screen chess(chess_subprocess, fen, player_color, movetime, depth)
 
-    # kill the chess subprocess to prevent memory leak
-    $ chess_subprocess.kill()
-
     # re-enable the Esc key menu
     $ _game_menu_screen = 'save'
 
@@ -103,5 +102,18 @@ label start:
                 e "Congratulations, player!"
             else:
                 e "Better luck next time, player."
+
+    menu:
+        "Would you like to play another game?"
+
+        "Yes":
+            jump chess_game
+
+        "No":
+            pass
+
+    # when you no longer need to play a chess game in your VN
+    # kill the chess subprocess to prevent memory leak
+    $ chess_subprocess.kill()
 
     return
