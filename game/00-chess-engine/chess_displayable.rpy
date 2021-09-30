@@ -150,6 +150,7 @@ screen chess(chess_subprocess, fen, player_color, movetime, depth):
                 textbutton '⚐':
                     action [Confirm('Would you like to resign?', 
                         yes=[Play('sound', AUDIO_DRAW),
+                        Function(chess_displayable.kill_chess_subprocess_stockfish), 
                         # if the current player resigns, the winner will be the opposite side
                         Return(not chess_displayable.whose_turn)])]
                     style 'control_button' yalign 0.5
@@ -176,10 +177,12 @@ screen chess(chess_subprocess, fen, player_color, movetime, depth):
         if chess_displayable.game_status == CHECKMATE:
             # use a timer so the player can see the screen once again
             timer 4.0 action [
+            Function(chess_displayable.kill_chess_subprocess_stockfish), 
             Return(chess_displayable.winner)
             ]
         elif chess_displayable.game_status == STALEMATE:
             timer 4.0 action [
+            Function(chess_displayable.kill_chess_subprocess_stockfish), 
             Return(DRAW)
             ]
 
@@ -530,6 +533,7 @@ init python:
                 message=reason + 'Would you like to claim draw?', 
                 yes_action=[Hide('confirm'), 
                 Play('sound', AUDIO_DRAW),
+                Function(chess_displayable.kill_chess_subprocess_stockfish), 
                 Return(DRAW)], 
                 no_action=Hide('confirm'))
             renpy.restart_interaction()

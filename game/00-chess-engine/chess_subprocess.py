@@ -19,8 +19,8 @@ def main():
         if not args:
             continue   
         if args[0] == 'quit':
+            # kill the stockfish subprocess to prevent memory leak
             chess_engine.kill_stockfish()
-            break
 
         elif args[0] == 'fen':
             chess_engine.init_board(args)
