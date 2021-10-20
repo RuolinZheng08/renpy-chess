@@ -21,6 +21,7 @@ define AUDIO_FLIP_BOARD = THIS_PATH + AUDIO_PATH + 'flip_board.wav'
 # this chess game is full-screen when the game resolution is 1280x720
 define CHESS_SCREEN_WIDTH = 1280
 define CHESS_SCREEN_HEIGHT = 720
+define CHESS_BOARD_SIDE_LEN = CHESS_SCREEN_HEIGHT
 
 # use loc to mean UI square and distinguish from logical square
 define LOC_LEN = 90 # length of one side of a loc
@@ -249,7 +250,7 @@ init python:
 
         def event(self, ev, x, y, st):
             # use screen height b/c chess displayable is a square
-            if 0 < x < CHESS_SCREEN_HEIGHT and ev.type == pygame.MOUSEMOTION:
+            if 0 < x < CHESS_BOARD_SIDE_LEN and 0 < y < CHESS_BOARD_SIDE_LEN and ev.type == pygame.MOUSEMOTION:
                 self.hover_coord = round_coord(x, y)
                 renpy.redraw(self, 0)                
 
@@ -388,7 +389,7 @@ init python:
                 renpy.restart_interaction()
 
             # regular gameplay interaction
-            if 0 < x < CHESS_SCREEN_HEIGHT and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
+            if 0 < x < CHESS_BOARD_SIDE_LEN and 0 < y < CHESS_BOARD_SIDE_LEN and ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
 
                 # first click, check if loc is selectable
                 if self.src_coord is None:
