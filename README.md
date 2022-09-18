@@ -46,6 +46,8 @@ Click on a piece and all of its available moves will be highlighted. Click on an
 
 ## Guide for Integrating into a Ren'Py Project
 
+Note: This project is built on Ren'Py 7 and doesn't yet support Ren'Py 8 (which uses Python 3). If your game requires Ren'Py 8, please reach out to me.
+
 All of the files essential to the chess engine are in `game/00-chess-engine`. Therefore, you only need to copy the entire `00-chess-engine` into your Ren'Py `game` directory.
 
 The chess game is full-screen when the screen resolution is 1280x720, but is customizable to fit any screen sizes, as described in subsequent sections.
