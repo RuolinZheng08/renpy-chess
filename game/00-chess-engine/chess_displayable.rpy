@@ -73,6 +73,7 @@ define STALEMATE = 6
 
 # END ENUM
 
+default STOCKFISH_ENGINE = None
 # END DEF
 
 # BEGIN STYLE
@@ -137,7 +138,7 @@ screen chess(fen, player_color, movetime, depth):
 
             text 'Most recent moves' style 'game_status_text' xalign 0.5
             for move in chess_displayable.history:
-                text (move) style 'game_status_text' xalign 0.5
+                text move.uci() style 'game_status_text' xalign 0.5
 
     # left bottom
     fixed xpos 20 ypos 500:
@@ -148,7 +149,6 @@ screen chess(fen, player_color, movetime, depth):
                     action [Confirm('Would you like to resign?', 
                         yes=[
                         Play('sound', AUDIO_DRAW),
-                        Function(kill_stockfish),
                         # if the current player resigns, the winner will be the opposite side
                         Return(not chess_displayable.whose_turn)
                         ])]
@@ -176,12 +176,10 @@ screen chess(fen, player_color, movetime, depth):
         if chess_displayable.game_status == CHECKMATE:
             # use a timer so the player can see the screen once again
             timer 4.0 action [
-            Function(kill_stockfish),
             Return(chess_displayable.winner)
             ]
         elif chess_displayable.game_status == STALEMATE:
             timer 4.0 action [
-            Function(kill_stockfish),
             Return(DRAW)
             ]
 
@@ -202,12 +200,12 @@ screen chess(fen, player_color, movetime, depth):
 # END SCREEN
 
 init python:
-
     # use UCI for move notations and FEN for board and move history
     # terms like cursor and coord, Stockfish and AI may be used interchangably
 
     import os
     import sys
+    import atexit # for registering clean up funcs
     import pygame
     from collections import deque # track move history
 
@@ -219,6 +217,7 @@ init python:
     
     # stockfish engine is OS-dependent
     stockfish_bin = None
+    STARTUPINFO = None
     if renpy.android:
         stockfish_bin = 'stockfish-10-armv7' # 32 bit
     elif renpy.ios:
@@ -229,6 +228,8 @@ init python:
         stockfish_bin = 'stockfish-11-64'
     elif renpy.windows:
         stockfish_bin = 'stockfish_20011801_x64.exe'
+        STARTUPINFO = subprocess.STARTUPINFO()
+        STARTUPINFO.dwFlags = subprocess.STARTF_USESHOWWINDOW
     else:
         raise Exception('No stockfish binary found for your system')
 
@@ -237,12 +238,7 @@ init python:
     build.executable(os.path.join(stockfish_dir, 'stockfish-11-64')) # mac
     build.executable(os.path.join(stockfish_dir, 'stockfish_20011801_x64')) # linux
 
-    stockfish = os.path.join(stockfish_dir, stockfish_bin)
-    STOCKFISH_ENGINE = chess.engine.SimpleEngine.popen_uci(stockfish)
-
-    def kill_stockfish():
-        if STOCKFISH_ENGINE:
-            STOCKFISH_ENGINE.quit()
+    STOCKFISH = os.path.join(stockfish_dir, stockfish_bin)
 
     class HoverDisplayable(renpy.Displayable):
         """
@@ -277,8 +273,6 @@ init python:
         def __init__(self, fen=STARTING_FEN, player_color=None, movetime=2000, depth=10):
             super(ChessDisplayable, self).__init__()
             self.board = chess.Board(fen)
-            self.engine = STOCKFISH_ENGINE
-            self.engine_limit = chess.engine.Limit(depth=depth)
 
             self.whose_turn = chess.WHITE
             self.has_flipped_board = False # for flipping board view
@@ -294,6 +288,12 @@ init python:
             else: # player vs computer
                 self.bottom_color = self.player_color # player color on the bottom
                 self.uses_stockfish = True
+
+                self.engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH, startupinfo=STARTUPINFO)
+                self.engine_limit = chess.engine.Limit(depth=depth)
+
+                # FIXME
+                atexit.register(self.engine.quit)
 
                 # validate stockfish params movetime and depth
                 movetime = movetime if MIN_MOVETIME <= movetime <= MAX_MOVETIME else MAX_MOVETIME
@@ -437,14 +437,17 @@ init python:
                         return
 
                     # construct move uci
-                    move = construct_move_uci(src_file, src_rank, dst_file, dst_rank, promotion=self.promotion)
+                    move = chess.Move(
+                        chess.square(src_file, src_rank),
+                        chess.square(dst_file, dst_rank),
+                        self.promotion
+                        )
 
                     # needs promotion but the player hasn't select a piece to promote to
-                    # if has promotion, len(move) should be 5, for ex, 'a7a8q'
-                    if self.show_promotion_ui and len(move) == 4:
+                    if self.show_promotion_ui and move.promotion:
                         renpy.notify('Please select a piece type to promote to')
 
-                    if move in self.get_legal_moves():
+                    if move in self.board.legal_moves:
                         self.make_move(move)
                     # otherwise the piece selection remains unchanged
                     # waiting for the player to select a valid move
@@ -469,13 +472,13 @@ init python:
             piece = self.board.piece_at(chess.square(file_idx, rank_idx))
             if not piece or not piece.symbol() in ['p', 'P'] or not piece.color == self.whose_turn:
                 return False
-            if piece.isupper(): # white
+            if piece.color == chess.WHITE:
                 return rank_idx == PROMOTION_RANK_WHITE
             else:
                 return rank_idx == PROMOTION_RANK_BLACK
 
         def play_move_audio(self, move):
-            if len(move) == 5: # has promotion
+            if move.promotion: # has promotion
                 renpy.sound.play(AUDIO_PROMOTION)
             else:
                 # check if the move is a capture
@@ -521,8 +524,6 @@ init python:
             else:
                 self.game_status = None
 
-            self.game_status = game_status
-
         def show_claim_draw_ui(self, reason=''):
             """
             reason: a string indicating the reason to claim the draw, directly prepended to message
@@ -532,14 +533,16 @@ init python:
                 yes_action=[
                     Hide('confirm'),
                     Play('sound', AUDIO_DRAW),
-                    Function(kill_stockfish),
                     Return(DRAW)
                 ], 
                 no_action=Hide('confirm'))
             renpy.restart_interaction()
 
         def add_highlight_move(self, move):
-            src_file, src_rank, dst_file, dst_rank = move_uci_to_file_rank(move)
+            src_file = chess.square_file(move.from_square)
+            src_rank = chess.square_rank(move.from_square)
+            dst_file = chess.square_file(move.to_square)
+            dst_rank = chess.square_rank(move.to_square)
             self.highlighted_squares = [(src_file, src_rank), (dst_file, dst_rank)]
 
         # START function definitions that make call to helper functions
@@ -548,9 +551,12 @@ init python:
             filter the destination squares from the legal moves
             """
             self.legal_dsts = []
-            legal_moves = self.get_legal_moves()
+            legal_moves = self.board.legal_moves
             for move in legal_moves:
-                move_src_file, move_src_rank, move_dst_file, move_dst_rank = move_uci_to_file_rank(move)
+                move_src_file = chess.square_file(move.from_square)
+                move_src_rank = chess.square_rank(move.from_square)
+                move_dst_file = chess.square_file(move.to_square)
+                move_dst_rank = chess.square_rank(move.to_square)
                 # the move originates from the current square
                 if move_src_file == src_file and move_src_rank == src_rank:
                     self.legal_dsts.append((move_dst_file, move_dst_rank))
@@ -634,8 +640,8 @@ init python:
         """
         for drawing, computes cursor coord rounded to the upperleft coord of the current loc
         """
-        x_round = x / LOC_LEN * LOC_LEN
-        y_round = y / LOC_LEN * LOC_LEN
+        x_round = x // LOC_LEN * LOC_LEN
+        y_round = y // LOC_LEN * LOC_LEN
         return (x_round, y_round)
 
     def square_to_file_rank(square):
@@ -647,20 +653,3 @@ init python:
         file_idx = ord(square[0]) - ord('a')
         rank_idx = int(square[1]) - 1
         return file_idx, rank_idx
-
-    def move_uci_to_file_rank(move):
-        """
-        move uci looks like 'a7a8' or 'a7a8q'
-        """
-        src = move[:2]
-        dst = move[2:]
-        move_src_file, move_src_rank = square_to_file_rank(src)
-        move_dst_file, move_dst_rank = square_to_file_rank(dst)
-        return move_src_file, move_src_rank, move_dst_file, move_dst_rank
-
-    def construct_move_uci(src_file_idx, src_rank_idx, dst_file_idx, dst_rank_idx, promotion=None):
-        move = FILE_LETTERS[src_file_idx] + str(src_rank_idx + 1)
-        move += FILE_LETTERS[dst_file_idx] + str(dst_rank_idx + 1)
-        if promotion:
-            move += promotion
-        return move

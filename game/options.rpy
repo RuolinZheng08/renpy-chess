@@ -206,9 +206,3 @@ init python:
 ## by a slash.
 
 # define build.itch_project = "renpytom/test-project"
-
-default STOCKFISH_ENGINE = None
-define config.quit_action = [
-    Function(kill_stockfish),
-    Quit(),
-]
