@@ -182,6 +182,7 @@ init python:
     build.classify('**/.**', None)
     build.classify('**/#**', None)
     build.classify('**/thumbs.db', None)
+    build.classify('gif-demo/*.gif', None)
 
     ## To archive files, classify them as 'archive'.
 
@@ -193,7 +194,6 @@ init python:
 
     build.documentation('*.html')
     build.documentation('*.txt')
-
 
 ## A Google Play license key is required to download expansion files and perform
 ## in-app purchases. It can be found on the "Services & APIs" page of the Google

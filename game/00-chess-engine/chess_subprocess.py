@@ -1,6 +1,4 @@
-import os
 import sys
-import time
 import subprocess
 
 import_dir = sys.argv[1]
@@ -21,7 +19,8 @@ def main():
         if not args:
             continue   
         if args[0] == 'quit':
-            break
+            # kill the stockfish subprocess to prevent memory leak
+            chess_engine.kill_stockfish()
 
         elif args[0] == 'fen':
             chess_engine.init_board(args)
@@ -82,6 +81,9 @@ class ChessEngine():
         self.stockfish = chess.uci.popen_engine(stockfish_path, startupinfo=startupinfo)
         self.stockfish.uci()
         self.stockfish.position(self.board)
+
+    def kill_stockfish(self):
+        self.stockfish.quit()
 
     def get_piece_at(self, args):
         file_idx, rank_idx = int(args[1]), int(args[2])

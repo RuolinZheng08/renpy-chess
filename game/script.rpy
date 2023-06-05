@@ -5,12 +5,36 @@
 
 define e = Character("Eileen")
 
+# initialize subprocess to communicate with the chess engine
+# THIS_PATH is defined in chess_displayable.rpy
+# define THIS_PATH = '00-chess-engine/'
+init python:
+    chess_script = os.path.join(renpy.config.gamedir, THIS_PATH, 'chess_subprocess.py')
+    # for importing libraries
+    import_dir = os.path.join(renpy.config.gamedir, THIS_PATH, 'python-packages')
+
+    startupinfo = None
+    if renpy.windows:      
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags = subprocess.STARTF_USESHOWWINDOW
+
+    # remember to kill this process after use to prevent memory leak
+    # but don't kill it unless there is no more chess game to play in your VN
+    chess_subprocess = subprocess.Popen(
+        [sys.executable, chess_script, import_dir],
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        startupinfo=startupinfo)
+
 # The game starts here.
 
 label start:
     scene bg room
     e "Welcome to the Ren'Py Chess Game!"
+
+label chess_game:
+    # board notation
     $ fen = STARTING_FEN
+
     menu:
         "Please select the game mode."
 
@@ -20,6 +44,7 @@ label start:
             $ depth = None
 
         "Player vs. Computer":
+            # initialize other variables used by the stockfish engine in stockfish.go()
             $ movetime = 2000
 
             menu:
@@ -50,7 +75,13 @@ label start:
     # avoid rolling back and losing chess game state
     $ renpy.block_rollback()
 
-    call screen chess(fen, player_color, movetime, depth)
+    # disable Esc key menu to prevent the player from saving the game
+    $ _game_menu_screen = None
+
+    call screen chess(chess_subprocess, fen, player_color, movetime, depth)
+
+    # re-enable the Esc key menu
+    $ _game_menu_screen = 'save'
 
     # avoid rolling back and entering the chess game again
     $ renpy.block_rollback()
@@ -71,5 +102,18 @@ label start:
                 e "Congratulations, player!"
             else:
                 e "Better luck next time, player."
+
+    menu:
+        "Would you like to play another game?"
+
+        "Yes":
+            jump chess_game
+
+        "No":
+            pass
+
+    # when you no longer need to play a chess game in your VN
+    # kill the chess subprocess to prevent memory leak
+    $ chess_subprocess.kill()
 
     return
