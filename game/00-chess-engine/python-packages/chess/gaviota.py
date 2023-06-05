@@ -1,8 +1,6 @@
-# -*- coding: utf-8 -*-
-#
 # This file is part of the python-chess library.
 # Copyright (C) 2015 Jean-Noël Avila <jn.avila@free.fr>
-# Copyright (C) 2015-2018 Niklas Fiekas <niklas.fiekas@backscattering.de>
+# Copyright (C) 2015-2021 Niklas Fiekas <niklas.fiekas@backscattering.de>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,15 +15,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-import collections
+from __future__ import annotations
+
 import ctypes
 import ctypes.util
+import dataclasses
 import fnmatch
+import logging
+import lzma
 import os
 import os.path
-import logging
 import struct
+import typing
+
 import chess
+
+from types import TracebackType
+from typing import BinaryIO, Callable, Dict, List, Optional, Tuple, Type, Union
 
 
 LOGGER = logging.getLogger(__name__)
@@ -95,30 +101,30 @@ ENTRIES_PER_BLOCK = 16 * 1024
 EGTB_MAXBLOCKSIZE = 65536
 
 
-def map24_b(s):
-    s = s - 8
+def map24_b(s: int) -> int:
+    s -= 8
     return ((s & 3) + s) >> 1
 
-def map88(x):
+def map88(x: int) -> int:
     return x + (x & 56)
 
-def in_queenside(x):
+def in_queenside(x: int) -> int:
     return (x & (1 << 2)) == 0
 
-def flip_we(x):
+def flip_we(x: int) -> int:
     return x ^ 7
 
-def flip_ns(x):
+def flip_ns(x: int) -> int:
     return x ^ 56
 
-def flip_nw_se(x):
+def flip_nw_se(x: int) -> int:
     return ((x & 7) << 3) | (x >> 3)
 
-def idx_is_empty(x):
+def idx_is_empty(x: int) -> int:
     return x == -1
 
 
-def flip_type(x, y):
+def flip_type(x: chess.Square, y: chess.Square) -> int:
     ret = 0
 
     if chess.square_file(x) > 3:
@@ -148,13 +154,13 @@ def flip_type(x, y):
 
     return ret
 
-def init_flipt():
+def init_flipt() -> List[List[int]]:
     return [[flip_type(j, i) for i in range(64)] for j in range(64)]
 
 FLIPT = init_flipt()
 
 
-def init_pp48_idx():
+def init_pp48_idx() -> Tuple[List[List[int]], List[int], List[int]]:
     MAX_I = 48
     MAX_J = 48
     idx = 0
@@ -180,7 +186,7 @@ def init_pp48_idx():
 PP48_IDX, PP48_SQ_X, PP48_SQ_Y = init_pp48_idx()
 
 
-def init_ppp48_idx():
+def init_ppp48_idx() -> Tuple[List[List[List[int]]], List[int], List[int], List[int]]:
     MAX_I = 48
     MAX_J = 48
     MAX_K = 48
@@ -213,14 +219,14 @@ def init_ppp48_idx():
                     ppp48_sq_x[idx] = i
                     ppp48_sq_y[idx] = j
                     ppp48_sq_z[idx] = k
-                    idx = idx + 1
+                    idx += 1
 
     return ppp48_idx, ppp48_sq_x, ppp48_sq_y, ppp48_sq_z
 
 PPP48_IDX, PPP48_SQ_X, PPP48_SQ_Y, PPP48_SQ_Z = init_ppp48_idx()
 
 
-def init_aaidx():
+def init_aaidx() -> Tuple[List[int], List[List[int]]]:
     aaidx = [[-1] * 64 for y in range(64)]
     aabase = [0] * MAX_AAINDEX
 
@@ -240,14 +246,14 @@ def init_aaidx():
 AABASE, AAIDX = init_aaidx()
 
 
-def init_aaa():
+def init_aaa() -> Tuple[List[int], List[List[int]]]:
     # Get aaa_base.
     comb = [a * (a - 1) // 2 for a in range(64)]
 
     accum = 0
     aaa_base = [0] * 64
     for a in range(64 - 1):
-        accum = accum + comb[a]
+        accum += comb[a]
         aaa_base[a + 1] = accum
 
     # Get aaa_xyz.
@@ -267,7 +273,7 @@ def init_aaa():
 AAA_BASE, AAA_XYZ = init_aaa()
 
 
-def pp_putanchorfirst(a, b):
+def pp_putanchorfirst(a: int, b: int) -> Tuple[int, int]:
     row_b = b & 56
     row_a = a & 56
 
@@ -311,25 +317,25 @@ def pp_putanchorfirst(a, b):
 
     return anchor, loosen
 
-def wsq_to_pidx24(pawn):
+def wsq_to_pidx24(pawn: int) -> int:
     sq = pawn
 
     sq = flip_ns(sq)
-    sq -= 8  # Down one row.
+    sq -= 8  # Down one row
 
     idx24 = (sq + (sq & 3)) >> 1
     return idx24
 
-def wsq_to_pidx48(pawn):
+def wsq_to_pidx48(pawn: int) -> int:
     sq = pawn
 
     sq = flip_ns(sq)
-    sq -= 8  # Down one row.
+    sq -= 8  # Down one row
 
     idx48 = sq
     return idx48
 
-def init_ppidx():
+def init_ppidx() -> Tuple[List[List[int]], List[int], List[int]]:
     ppidx = [[-1] * 48 for i in range(24)]
     pp_hi24 = [-1] * MAX_PPINDEX
     pp_lo48 = [-1] * MAX_PPINDEX
@@ -346,7 +352,7 @@ def init_ppidx():
             anchor, loosen = pp_putanchorfirst(a, b)
 
             if (anchor & 7) > 3:
-                # Square in the kingside.
+                # Square on the kingside.
                 anchor = flip_we(anchor)
                 loosen = flip_we(loosen)
 
@@ -364,7 +370,7 @@ def init_ppidx():
 PPIDX, PP_HI24, PP_LO48 = init_ppidx()
 
 
-def norm_kkindex(x, y):
+def norm_kkindex(x: chess.Square, y: chess.Square) -> Tuple[int, int]:
     if chess.square_file(x) > 3:
         x = flip_we(x)
         y = flip_we(y)
@@ -389,7 +395,7 @@ def norm_kkindex(x, y):
 
     return x, y
 
-def init_kkidx():
+def init_kkidx() -> Tuple[List[List[int]], List[int], List[int]]:
     kkidx = [[-1] * 64 for x in range(64)]
     bksq = [-1] * MAX_KKINDEX
     wksq = [-1] * MAX_KKINDEX
@@ -413,7 +419,7 @@ def init_kkidx():
 KKIDX, WKSQ, BKSQ = init_kkidx()
 
 
-def kxk_pctoindex(c):
+def kxk_pctoindex(c: Request) -> int:
     BLOCK_Ax = 64
 
     ft = flip_type(c.black_piece_squares[0], c.white_piece_squares[0])
@@ -440,7 +446,7 @@ def kxk_pctoindex(c):
 
     return ki * BLOCK_Ax + ws[1]
 
-def kapkb_pctoindex(c):
+def kapkb_pctoindex(c: Request) -> int:
     BLOCK_A = 64 * 64 * 64 * 64
     BLOCK_B = 64 * 64 * 64
     BLOCK_C = 64 * 64
@@ -456,7 +462,7 @@ def kapkb_pctoindex(c):
         return NOINDEX
 
     if (pawn & 7) > 3:
-        # Column is more than 3, i.e. e, f, g or h.
+        # Column is more than 3, i.e., e, f, g or h.
         pawn = flip_we(pawn)
         wk = flip_we(wk)
         bk = flip_we(bk)
@@ -465,12 +471,12 @@ def kapkb_pctoindex(c):
 
     sq = pawn
     sq ^= 56  # flip_ns
-    sq -= 8   # down one row
+    sq -= 8   # Down one row
     pslice = (sq + (sq & 3)) >> 1
 
     return pslice * BLOCK_A + wk * BLOCK_B + bk * BLOCK_C + wa * BLOCK_D + ba
 
-def kabpk_pctoindex(c):
+def kabpk_pctoindex(c: Request) -> int:
     BLOCK_A = 64 * 64 * 64 * 64
     BLOCK_B = 64 * 64 * 64
     BLOCK_C = 64 * 64
@@ -483,7 +489,7 @@ def kabpk_pctoindex(c):
     bk = c.black_piece_squares[0]
 
     if (pawn & 7) > 3:
-        # Column is more than 3, i.e. e, f, g or h.
+        # Column is more than 3, i.e., e, f, g or h.
         pawn = flip_we(pawn)
         wk = flip_we(wk)
         bk = flip_we(bk)
@@ -494,7 +500,7 @@ def kabpk_pctoindex(c):
 
     return pslice * BLOCK_A + wk * BLOCK_B + bk * BLOCK_C + wa * BLOCK_D + wb
 
-def kabkp_pctoindex(c):
+def kabkp_pctoindex(c: Request) -> int:
     BLOCK_A = 64 * 64 * 64 * 64
     BLOCK_B = 64 * 64 * 64
     BLOCK_C = 64 * 64
@@ -510,7 +516,7 @@ def kabkp_pctoindex(c):
         return NOINDEX
 
     if (pawn & 7) > 3:
-        # Column is more than 3, i.e. e, f, g or h.
+        # Column is more than 3, i.e., e, f, g or h.
         pawn = flip_we(pawn)
         wk = flip_we(wk)
         bk = flip_we(bk)
@@ -518,12 +524,12 @@ def kabkp_pctoindex(c):
         wb = flip_we(wb)
 
     sq = pawn
-    sq -= 8  # down one row
+    sq -= 8  # Down one row
     pslice = (sq + (sq & 3)) >> 1
 
     return pslice * BLOCK_A + wk * BLOCK_B + bk * BLOCK_C + wa * BLOCK_D + wb
 
-def kaapk_pctoindex(c):
+def kaapk_pctoindex(c: Request) -> int:
     BLOCK_C = MAX_AAINDEX
     BLOCK_B = 64 * BLOCK_C
     BLOCK_A = 64 * BLOCK_B
@@ -535,7 +541,7 @@ def kaapk_pctoindex(c):
     bk = c.black_piece_squares[0]
 
     if (pawn & 7) > 3:
-        # Column is more than 3, i.e. e, f, g or h.
+        # Column is more than 3, i.e., e, f, g or h.
         pawn = flip_we(pawn)
         wk = flip_we(wk)
         bk = flip_we(bk)
@@ -551,7 +557,7 @@ def kaapk_pctoindex(c):
 
     return pslice * BLOCK_A + wk * BLOCK_B + bk * BLOCK_C + aa_combo
 
-def kaakp_pctoindex(c):
+def kaakp_pctoindex(c: Request) -> int:
     BLOCK_C = MAX_AAINDEX
     BLOCK_B = 64 * BLOCK_C
     BLOCK_A = 64 * BLOCK_B
@@ -563,7 +569,7 @@ def kaakp_pctoindex(c):
     pawn = c.black_piece_squares[1]
 
     if (pawn & 7) > 3:
-        # Column is more than 3, i.e. e, f, g or h.
+        # Column is more than 3, i.e., e, f, g or h.
         pawn = flip_we(pawn)
         wk = flip_we(wk)
         bk = flip_we(bk)
@@ -580,7 +586,7 @@ def kaakp_pctoindex(c):
 
     return pslice * BLOCK_A + wk * BLOCK_B + bk * BLOCK_C + aa_combo
 
-def kapkp_pctoindex(c):
+def kapkp_pctoindex(c: Request) -> int:
     BLOCK_A = 64 * 64 * 64
     BLOCK_B = 64 * 64
     BLOCK_C = 64
@@ -595,7 +601,7 @@ def kapkp_pctoindex(c):
     loosen = pawn_b
 
     if (anchor & 7) > 3:
-        # Column is more than 3, i.e. e, f, g or h.
+        # Column is more than 3, i.e., e, f, g or h.
         anchor = flip_we(anchor)
         loosen = flip_we(loosen)
         wk = flip_we(wk)
@@ -611,7 +617,7 @@ def kapkp_pctoindex(c):
 
     return pp_slice * BLOCK_A + wk * BLOCK_B + bk * BLOCK_C + wa
 
-def kappk_pctoindex(c):
+def kappk_pctoindex(c: Request) -> int:
     BLOCK_A = 64 * 64 * 64
     BLOCK_B = 64 * 64
     BLOCK_C = 64
@@ -625,7 +631,7 @@ def kappk_pctoindex(c):
     anchor, loosen = pp_putanchorfirst(pawn_a, pawn_b)
 
     if (anchor & 7) > 3:
-        # Column is more than 3, i.e. e, f, g or h.
+        # Column is more than 3, i.e., e, f, g or h.
         anchor = flip_we(anchor)
         loosen = flip_we(loosen)
         wk = flip_we(wk)
@@ -642,7 +648,7 @@ def kappk_pctoindex(c):
 
     return pp_slice * BLOCK_A + wk * BLOCK_B + bk * BLOCK_C + wa
 
-def kppka_pctoindex(c):
+def kppka_pctoindex(c: Request) -> int:
     BLOCK_A = 64 * 64 * 64
     BLOCK_B = 64 * 64
     BLOCK_C = 64
@@ -672,7 +678,7 @@ def kppka_pctoindex(c):
 
     return pp_slice * BLOCK_A + wk * BLOCK_B + bk * BLOCK_C + ba
 
-def kabck_pctoindex(c):
+def kabck_pctoindex(c: Request) -> int:
     N_WHITE = 4
     N_BLACK = 1
     BLOCK_A = 64 * 64 * 64
@@ -703,7 +709,7 @@ def kabck_pctoindex(c):
 
     return ki * BLOCK_A + ws[1] * BLOCK_B + ws[2] * BLOCK_C + ws[3]
 
-def kabbk_pctoindex(c):
+def kabbk_pctoindex(c: Request) -> int:
     N_WHITE = 4
     N_BLACK = 1
     BLOCK_Bx = 64
@@ -734,7 +740,7 @@ def kabbk_pctoindex(c):
 
     return ki * BLOCK_Ax + ai * BLOCK_Bx + ws[1]
 
-def kaabk_pctoindex(c):
+def kaabk_pctoindex(c: Request) -> int:
     N_WHITE = 4
     N_BLACK = 1
     BLOCK_Bx = 64
@@ -765,12 +771,12 @@ def kaabk_pctoindex(c):
 
     return ki * BLOCK_Ax + ai * BLOCK_Bx + ws[3]
 
-def aaa_getsubi(x, y, z):
+def aaa_getsubi(x: int, y: int, z: int) -> int:
     bse = AAA_BASE[z]
     calc_idx = x + (y - 1) * y // 2 + bse
     return calc_idx
 
-def kaaak_pctoindex(c):
+def kaaak_pctoindex(c: Request) -> int:
     N_WHITE = 4
     N_BLACK = 1
     BLOCK_Ax = MAX_AAAINDEX
@@ -817,7 +823,7 @@ def kaaak_pctoindex(c):
 
     return ki * BLOCK_Ax + ai
 
-def kppkp_pctoindex(c):
+def kppkp_pctoindex(c: Request) -> int:
     BLOCK_Ax = MAX_PP48_INDEX * 64 * 64
     BLOCK_Bx = 64 * 64
     BLOCK_Cx = 64
@@ -838,7 +844,7 @@ def kppkp_pctoindex(c):
     i = flip_we(flip_ns(pawn_a)) - 8
     j = flip_we(flip_ns(pawn_b)) - 8
 
-    # Black pawn, so low indexes mean more advanced.
+    # Black pawn, so low indexes are more advanced.
     k = map24_b(pawn_c)
 
     pp48_slice = PP48_IDX[i][j]
@@ -848,7 +854,7 @@ def kppkp_pctoindex(c):
 
     return k * BLOCK_Ax + pp48_slice * BLOCK_Bx + wk * BLOCK_Cx + bk
 
-def kaakb_pctoindex(c):
+def kaakb_pctoindex(c: Request) -> int:
     N_WHITE = 3
     N_BLACK = 2
     BLOCK_Bx = 64
@@ -879,7 +885,7 @@ def kaakb_pctoindex(c):
 
     return ki * BLOCK_Ax + ai * BLOCK_Bx + bs[1]
 
-def kabkc_pctoindex(c):
+def kabkc_pctoindex(c: Request) -> int:
     N_WHITE = 3
     N_BLACK = 2
 
@@ -911,7 +917,7 @@ def kabkc_pctoindex(c):
 
     return ki * BLOCK_Ax + ws[1] * BLOCK_Bx + ws[2] * BLOCK_Cx + bs[1]
 
-def kpkp_pctoindex(c):
+def kpkp_pctoindex(c: Request) -> int:
     BLOCK_Ax = 64 * 64
     BLOCK_Bx = 64
 
@@ -939,7 +945,7 @@ def kpkp_pctoindex(c):
 
     return pp_slice * BLOCK_Ax + wk * BLOCK_Bx + bk
 
-def kppk_pctoindex(c):
+def kppk_pctoindex(c: Request) -> int:
     BLOCK_Ax = 64 * 64
     BLOCK_Bx = 64
     wk = c.white_piece_squares[0]
@@ -965,7 +971,7 @@ def kppk_pctoindex(c):
 
     return pp_slice * BLOCK_Ax + wk * BLOCK_Bx + bk
 
-def kapk_pctoindex(c):
+def kapk_pctoindex(c: Request) -> int:
     BLOCK_Ax = 64 * 64 * 64
     BLOCK_Bx = 64 * 64
     BLOCK_Cx = 64
@@ -986,12 +992,12 @@ def kapk_pctoindex(c):
 
     sq = pawn
     sq ^= 56  # flip_ns
-    sq -= 8   # down one row
+    sq -= 8   # Down one row
     pslice = ((sq + (sq & 3)) >> 1)
 
     return pslice * BLOCK_Ax + wk * BLOCK_Bx + bk * BLOCK_Cx + wa
 
-def kabk_pctoindex(c):
+def kabk_pctoindex(c: Request) -> int:
     BLOCK_Ax = 64 * 64
     BLOCK_Bx = 64
 
@@ -1019,7 +1025,7 @@ def kabk_pctoindex(c):
 
     return ki * BLOCK_Ax + ws[1] * BLOCK_Bx + ws[2]
 
-def kakp_pctoindex(c):
+def kakp_pctoindex(c: Request) -> int:
     BLOCK_Ax = 64 * 64 * 64
     BLOCK_Bx = 64 * 64
     BLOCK_Cx = 64
@@ -1039,12 +1045,12 @@ def kakp_pctoindex(c):
         wa = flip_we(wa)
 
     sq = pawn
-    sq -= 8  # down one row
+    sq -= 8  # Down one row
     pslice = (sq + (sq & 3)) >> 1
 
     return pslice * BLOCK_Ax + wk * BLOCK_Bx + bk * BLOCK_Cx + wa
 
-def kaak_pctoindex(c):
+def kaak_pctoindex(c: Request) -> int:
     N_WHITE = 3
     N_BLACK = 1
     BLOCK_Ax = MAX_AAINDEX
@@ -1074,7 +1080,7 @@ def kaak_pctoindex(c):
 
     return ki * BLOCK_Ax + ai
 
-def kakb_pctoindex(c):
+def kakb_pctoindex(c: Request) -> int:
     BLOCK_Ax = 64 * 64
     BLOCK_Bx = 64
 
@@ -1108,7 +1114,7 @@ def kakb_pctoindex(c):
 
     return ki * BLOCK_Ax + ws[1] * BLOCK_Bx + bs[1]
 
-def kpk_pctoindex(c):
+def kpk_pctoindex(c: Request) -> int:
     BLOCK_A = 64 * 64
     BLOCK_B = 64
 
@@ -1126,13 +1132,13 @@ def kpk_pctoindex(c):
 
     sq = pawn
     sq ^= 56  # flip_ns
-    sq -= 8   # down one row
+    sq -= 8   # Down one row
     pslice = ((sq + (sq & 3)) >> 1)
 
     res = pslice * BLOCK_A + wk * BLOCK_B + bk
     return res
 
-def kpppk_pctoindex(c):
+def kpppk_pctoindex(c: Request) -> int:
     BLOCK_A = 64 * 64
     BLOCK_B = 64
 
@@ -1168,189 +1174,190 @@ def kpppk_pctoindex(c):
     return ppp48_slice * BLOCK_A + wk * BLOCK_B + bk
 
 
-Endgamekey = collections.namedtuple("Endgamekey", "maxindex slice_n pctoi")
+class EndgameKey:
+    def __init__(self, maxindex: int, slice_n: int, pctoi: Callable[[Request], int]):
+        self.maxindex = maxindex
+        self.slice_n = slice_n
+        self.pctoi = pctoi
 
 EGKEY = {
-    "kqk": Endgamekey(MAX_KXK, 1, kxk_pctoindex),
-    "krk": Endgamekey(MAX_KXK, 1, kxk_pctoindex),
-    "kbk": Endgamekey(MAX_KXK, 1, kxk_pctoindex),
-    "knk": Endgamekey(MAX_KXK, 1, kxk_pctoindex),
-    "kpk": Endgamekey(MAX_kpk, 24, kpk_pctoindex),
+    "kqk": EndgameKey(MAX_KXK, 1, kxk_pctoindex),
+    "krk": EndgameKey(MAX_KXK, 1, kxk_pctoindex),
+    "kbk": EndgameKey(MAX_KXK, 1, kxk_pctoindex),
+    "knk": EndgameKey(MAX_KXK, 1, kxk_pctoindex),
+    "kpk": EndgameKey(MAX_kpk, 24, kpk_pctoindex),
 
-    "kqkq": Endgamekey(MAX_kakb, 1, kakb_pctoindex),
-    "kqkr": Endgamekey(MAX_kakb, 1, kakb_pctoindex),
-    "kqkb": Endgamekey(MAX_kakb, 1, kakb_pctoindex),
-    "kqkn": Endgamekey(MAX_kakb, 1, kakb_pctoindex),
+    "kqkq": EndgameKey(MAX_kakb, 1, kakb_pctoindex),
+    "kqkr": EndgameKey(MAX_kakb, 1, kakb_pctoindex),
+    "kqkb": EndgameKey(MAX_kakb, 1, kakb_pctoindex),
+    "kqkn": EndgameKey(MAX_kakb, 1, kakb_pctoindex),
 
-    "krkr": Endgamekey(MAX_kakb, 1, kakb_pctoindex),
-    "krkb": Endgamekey(MAX_kakb, 1, kakb_pctoindex),
-    "krkn": Endgamekey(MAX_kakb, 1, kakb_pctoindex),
+    "krkr": EndgameKey(MAX_kakb, 1, kakb_pctoindex),
+    "krkb": EndgameKey(MAX_kakb, 1, kakb_pctoindex),
+    "krkn": EndgameKey(MAX_kakb, 1, kakb_pctoindex),
 
-    "kbkb": Endgamekey(MAX_kakb, 1, kakb_pctoindex),
-    "kbkn": Endgamekey(MAX_kakb, 1, kakb_pctoindex),
+    "kbkb": EndgameKey(MAX_kakb, 1, kakb_pctoindex),
+    "kbkn": EndgameKey(MAX_kakb, 1, kakb_pctoindex),
 
-    "knkn": Endgamekey(MAX_kakb, 1, kakb_pctoindex),
+    "knkn": EndgameKey(MAX_kakb, 1, kakb_pctoindex),
 
-    "kqqk": Endgamekey(MAX_kaak, 1, kaak_pctoindex),
-    "kqrk": Endgamekey(MAX_kabk, 1, kabk_pctoindex),
-    "kqbk": Endgamekey(MAX_kabk, 1, kabk_pctoindex),
-    "kqnk": Endgamekey(MAX_kabk, 1, kabk_pctoindex),
+    "kqqk": EndgameKey(MAX_kaak, 1, kaak_pctoindex),
+    "kqrk": EndgameKey(MAX_kabk, 1, kabk_pctoindex),
+    "kqbk": EndgameKey(MAX_kabk, 1, kabk_pctoindex),
+    "kqnk": EndgameKey(MAX_kabk, 1, kabk_pctoindex),
 
-    "krrk": Endgamekey(MAX_kaak, 1, kaak_pctoindex),
-    "krbk": Endgamekey(MAX_kabk, 1, kabk_pctoindex),
-    "krnk": Endgamekey(MAX_kabk, 1, kabk_pctoindex),
+    "krrk": EndgameKey(MAX_kaak, 1, kaak_pctoindex),
+    "krbk": EndgameKey(MAX_kabk, 1, kabk_pctoindex),
+    "krnk": EndgameKey(MAX_kabk, 1, kabk_pctoindex),
 
-    "kbbk": Endgamekey(MAX_kaak, 1, kaak_pctoindex),
-    "kbnk": Endgamekey(MAX_kabk, 1, kabk_pctoindex),
+    "kbbk": EndgameKey(MAX_kaak, 1, kaak_pctoindex),
+    "kbnk": EndgameKey(MAX_kabk, 1, kabk_pctoindex),
 
-    "knnk": Endgamekey(MAX_kaak, 1, kaak_pctoindex),
-    "kqkp": Endgamekey(MAX_kakp, 24, kakp_pctoindex),
-    "krkp": Endgamekey(MAX_kakp, 24, kakp_pctoindex),
-    "kbkp": Endgamekey(MAX_kakp, 24, kakp_pctoindex),
-    "knkp": Endgamekey(MAX_kakp, 24, kakp_pctoindex),
+    "knnk": EndgameKey(MAX_kaak, 1, kaak_pctoindex),
+    "kqkp": EndgameKey(MAX_kakp, 24, kakp_pctoindex),
+    "krkp": EndgameKey(MAX_kakp, 24, kakp_pctoindex),
+    "kbkp": EndgameKey(MAX_kakp, 24, kakp_pctoindex),
+    "knkp": EndgameKey(MAX_kakp, 24, kakp_pctoindex),
 
-    "kqpk": Endgamekey(MAX_kapk, 24, kapk_pctoindex),
-    "krpk": Endgamekey(MAX_kapk, 24, kapk_pctoindex),
-    "kbpk": Endgamekey(MAX_kapk, 24, kapk_pctoindex),
-    "knpk": Endgamekey(MAX_kapk, 24, kapk_pctoindex),
+    "kqpk": EndgameKey(MAX_kapk, 24, kapk_pctoindex),
+    "krpk": EndgameKey(MAX_kapk, 24, kapk_pctoindex),
+    "kbpk": EndgameKey(MAX_kapk, 24, kapk_pctoindex),
+    "knpk": EndgameKey(MAX_kapk, 24, kapk_pctoindex),
 
-    "kppk": Endgamekey(MAX_kppk, MAX_PPINDEX, kppk_pctoindex),
+    "kppk": EndgameKey(MAX_kppk, MAX_PPINDEX, kppk_pctoindex),
 
-    "kpkp": Endgamekey(MAX_kpkp, MAX_PpINDEX, kpkp_pctoindex),
+    "kpkp": EndgameKey(MAX_kpkp, MAX_PpINDEX, kpkp_pctoindex),
 
-    "kppkp": Endgamekey(MAX_kppkp, 24 * MAX_PP48_INDEX, kppkp_pctoindex),
+    "kppkp": EndgameKey(MAX_kppkp, 24 * MAX_PP48_INDEX, kppkp_pctoindex),
 
-    "kbbkr": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "kbbkb": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "knnkb": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "knnkn": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
+    "kbbkr": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "kbbkb": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "knnkb": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "knnkn": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
 
-    "kqqqk": Endgamekey(MAX_kaaak, 1, kaaak_pctoindex),
-    "kqqrk": Endgamekey(MAX_kaabk, 1, kaabk_pctoindex),
-    "kqqbk": Endgamekey(MAX_kaabk, 1, kaabk_pctoindex),
-    "kqqnk": Endgamekey(MAX_kaabk, 1, kaabk_pctoindex),
-    "kqrrk": Endgamekey(MAX_kabbk, 1, kabbk_pctoindex),
-    "kqrbk": Endgamekey(MAX_kabck, 1, kabck_pctoindex),
-    "kqrnk": Endgamekey(MAX_kabck, 1, kabck_pctoindex),
-    "kqbbk": Endgamekey(MAX_kabbk, 1, kabbk_pctoindex),
-    "kqbnk": Endgamekey(MAX_kabck, 1, kabck_pctoindex),
-    "kqnnk": Endgamekey(MAX_kabbk, 1, kabbk_pctoindex),
-    "krrrk": Endgamekey(MAX_kaaak, 1, kaaak_pctoindex),
-    "krrbk": Endgamekey(MAX_kaabk, 1, kaabk_pctoindex),
-    "krrnk": Endgamekey(MAX_kaabk, 1, kaabk_pctoindex),
-    "krbbk": Endgamekey(MAX_kabbk, 1, kabbk_pctoindex),
-    "krbnk": Endgamekey(MAX_kabck, 1, kabck_pctoindex),
-    "krnnk": Endgamekey(MAX_kabbk, 1, kabbk_pctoindex),
-    "kbbbk": Endgamekey(MAX_kaaak, 1, kaaak_pctoindex),
-    "kbbnk": Endgamekey(MAX_kaabk, 1, kaabk_pctoindex),
-    "kbnnk": Endgamekey(MAX_kabbk, 1, kabbk_pctoindex),
-    "knnnk": Endgamekey(MAX_kaaak, 1, kaaak_pctoindex),
-    "kqqkq": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "kqqkr": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "kqqkb": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "kqqkn": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "kqrkq": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kqrkr": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kqrkb": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kqrkn": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kqbkq": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kqbkr": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kqbkb": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kqbkn": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kqnkq": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kqnkr": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kqnkb": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kqnkn": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "krrkq": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "krrkr": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "krrkb": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "krrkn": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "krbkq": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "krbkr": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "krbkb": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "krbkn": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "krnkq": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "krnkr": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "krnkb": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "krnkn": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kbbkq": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "kbbkn": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "kbnkq": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kbnkr": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kbnkb": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "kbnkn": Endgamekey(MAX_kabkc, 1, kabkc_pctoindex),
-    "knnkq": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
-    "knnkr": Endgamekey(MAX_kaakb, 1, kaakb_pctoindex),
+    "kqqqk": EndgameKey(MAX_kaaak, 1, kaaak_pctoindex),
+    "kqqrk": EndgameKey(MAX_kaabk, 1, kaabk_pctoindex),
+    "kqqbk": EndgameKey(MAX_kaabk, 1, kaabk_pctoindex),
+    "kqqnk": EndgameKey(MAX_kaabk, 1, kaabk_pctoindex),
+    "kqrrk": EndgameKey(MAX_kabbk, 1, kabbk_pctoindex),
+    "kqrbk": EndgameKey(MAX_kabck, 1, kabck_pctoindex),
+    "kqrnk": EndgameKey(MAX_kabck, 1, kabck_pctoindex),
+    "kqbbk": EndgameKey(MAX_kabbk, 1, kabbk_pctoindex),
+    "kqbnk": EndgameKey(MAX_kabck, 1, kabck_pctoindex),
+    "kqnnk": EndgameKey(MAX_kabbk, 1, kabbk_pctoindex),
+    "krrrk": EndgameKey(MAX_kaaak, 1, kaaak_pctoindex),
+    "krrbk": EndgameKey(MAX_kaabk, 1, kaabk_pctoindex),
+    "krrnk": EndgameKey(MAX_kaabk, 1, kaabk_pctoindex),
+    "krbbk": EndgameKey(MAX_kabbk, 1, kabbk_pctoindex),
+    "krbnk": EndgameKey(MAX_kabck, 1, kabck_pctoindex),
+    "krnnk": EndgameKey(MAX_kabbk, 1, kabbk_pctoindex),
+    "kbbbk": EndgameKey(MAX_kaaak, 1, kaaak_pctoindex),
+    "kbbnk": EndgameKey(MAX_kaabk, 1, kaabk_pctoindex),
+    "kbnnk": EndgameKey(MAX_kabbk, 1, kabbk_pctoindex),
+    "knnnk": EndgameKey(MAX_kaaak, 1, kaaak_pctoindex),
+    "kqqkq": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "kqqkr": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "kqqkb": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "kqqkn": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "kqrkq": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kqrkr": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kqrkb": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kqrkn": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kqbkq": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kqbkr": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kqbkb": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kqbkn": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kqnkq": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kqnkr": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kqnkb": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kqnkn": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "krrkq": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "krrkr": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "krrkb": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "krrkn": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "krbkq": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "krbkr": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "krbkb": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "krbkn": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "krnkq": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "krnkr": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "krnkb": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "krnkn": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kbbkq": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "kbbkn": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "kbnkq": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kbnkr": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kbnkb": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "kbnkn": EndgameKey(MAX_kabkc, 1, kabkc_pctoindex),
+    "knnkq": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
+    "knnkr": EndgameKey(MAX_kaakb, 1, kaakb_pctoindex),
 
-    "kqqpk": Endgamekey(MAX_kaapk, 24, kaapk_pctoindex),
-    "kqrpk": Endgamekey(MAX_kabpk, 24, kabpk_pctoindex),
-    "kqbpk": Endgamekey(MAX_kabpk, 24, kabpk_pctoindex),
-    "kqnpk": Endgamekey(MAX_kabpk, 24, kabpk_pctoindex),
-    "krrpk": Endgamekey(MAX_kaapk, 24, kaapk_pctoindex),
-    "krbpk": Endgamekey(MAX_kabpk, 24, kabpk_pctoindex),
-    "krnpk": Endgamekey(MAX_kabpk, 24, kabpk_pctoindex),
-    "kbbpk": Endgamekey(MAX_kaapk, 24, kaapk_pctoindex),
-    "kbnpk": Endgamekey(MAX_kabpk, 24, kabpk_pctoindex),
-    "knnpk": Endgamekey(MAX_kaapk, 24, kaapk_pctoindex),
+    "kqqpk": EndgameKey(MAX_kaapk, 24, kaapk_pctoindex),
+    "kqrpk": EndgameKey(MAX_kabpk, 24, kabpk_pctoindex),
+    "kqbpk": EndgameKey(MAX_kabpk, 24, kabpk_pctoindex),
+    "kqnpk": EndgameKey(MAX_kabpk, 24, kabpk_pctoindex),
+    "krrpk": EndgameKey(MAX_kaapk, 24, kaapk_pctoindex),
+    "krbpk": EndgameKey(MAX_kabpk, 24, kabpk_pctoindex),
+    "krnpk": EndgameKey(MAX_kabpk, 24, kabpk_pctoindex),
+    "kbbpk": EndgameKey(MAX_kaapk, 24, kaapk_pctoindex),
+    "kbnpk": EndgameKey(MAX_kabpk, 24, kabpk_pctoindex),
+    "knnpk": EndgameKey(MAX_kaapk, 24, kaapk_pctoindex),
 
-    "kqppk": Endgamekey(MAX_kappk, MAX_PPINDEX, kappk_pctoindex),
-    "krppk": Endgamekey(MAX_kappk, MAX_PPINDEX, kappk_pctoindex),
-    "kbppk": Endgamekey(MAX_kappk, MAX_PPINDEX, kappk_pctoindex),
-    "knppk": Endgamekey(MAX_kappk, MAX_PPINDEX, kappk_pctoindex),
+    "kqppk": EndgameKey(MAX_kappk, MAX_PPINDEX, kappk_pctoindex),
+    "krppk": EndgameKey(MAX_kappk, MAX_PPINDEX, kappk_pctoindex),
+    "kbppk": EndgameKey(MAX_kappk, MAX_PPINDEX, kappk_pctoindex),
+    "knppk": EndgameKey(MAX_kappk, MAX_PPINDEX, kappk_pctoindex),
 
-    "kqpkq": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "kqpkr": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "kqpkb": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "kqpkn": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "krpkq": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "krpkr": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "krpkb": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "krpkn": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "kbpkq": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "kbpkr": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "kbpkb": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "kbpkn": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "knpkq": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "knpkr": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "knpkb": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "knpkn": Endgamekey(MAX_kapkb, 24, kapkb_pctoindex),
-    "kppkq": Endgamekey(MAX_kppka, MAX_PPINDEX, kppka_pctoindex),
-    "kppkr": Endgamekey(MAX_kppka, MAX_PPINDEX, kppka_pctoindex),
-    "kppkb": Endgamekey(MAX_kppka, MAX_PPINDEX, kppka_pctoindex),
-    "kppkn": Endgamekey(MAX_kppka, MAX_PPINDEX, kppka_pctoindex),
+    "kqpkq": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "kqpkr": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "kqpkb": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "kqpkn": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "krpkq": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "krpkr": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "krpkb": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "krpkn": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "kbpkq": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "kbpkr": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "kbpkb": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "kbpkn": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "knpkq": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "knpkr": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "knpkb": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "knpkn": EndgameKey(MAX_kapkb, 24, kapkb_pctoindex),
+    "kppkq": EndgameKey(MAX_kppka, MAX_PPINDEX, kppka_pctoindex),
+    "kppkr": EndgameKey(MAX_kppka, MAX_PPINDEX, kppka_pctoindex),
+    "kppkb": EndgameKey(MAX_kppka, MAX_PPINDEX, kppka_pctoindex),
+    "kppkn": EndgameKey(MAX_kppka, MAX_PPINDEX, kppka_pctoindex),
 
-    "kqqkp": Endgamekey(MAX_kaakp, 24, kaakp_pctoindex),
-    "kqrkp": Endgamekey(MAX_kabkp, 24, kabkp_pctoindex),
-    "kqbkp": Endgamekey(MAX_kabkp, 24, kabkp_pctoindex),
-    "kqnkp": Endgamekey(MAX_kabkp, 24, kabkp_pctoindex),
-    "krrkp": Endgamekey(MAX_kaakp, 24, kaakp_pctoindex),
-    "krbkp": Endgamekey(MAX_kabkp, 24, kabkp_pctoindex),
-    "krnkp": Endgamekey(MAX_kabkp, 24, kabkp_pctoindex),
-    "kbbkp": Endgamekey(MAX_kaakp, 24, kaakp_pctoindex),
-    "kbnkp": Endgamekey(MAX_kabkp, 24, kabkp_pctoindex),
-    "knnkp": Endgamekey(MAX_kaakp, 24, kaakp_pctoindex),
+    "kqqkp": EndgameKey(MAX_kaakp, 24, kaakp_pctoindex),
+    "kqrkp": EndgameKey(MAX_kabkp, 24, kabkp_pctoindex),
+    "kqbkp": EndgameKey(MAX_kabkp, 24, kabkp_pctoindex),
+    "kqnkp": EndgameKey(MAX_kabkp, 24, kabkp_pctoindex),
+    "krrkp": EndgameKey(MAX_kaakp, 24, kaakp_pctoindex),
+    "krbkp": EndgameKey(MAX_kabkp, 24, kabkp_pctoindex),
+    "krnkp": EndgameKey(MAX_kabkp, 24, kabkp_pctoindex),
+    "kbbkp": EndgameKey(MAX_kaakp, 24, kaakp_pctoindex),
+    "kbnkp": EndgameKey(MAX_kabkp, 24, kabkp_pctoindex),
+    "knnkp": EndgameKey(MAX_kaakp, 24, kaakp_pctoindex),
 
-    "kqpkp": Endgamekey(MAX_kapkp, MAX_PpINDEX, kapkp_pctoindex),
-    "krpkp": Endgamekey(MAX_kapkp, MAX_PpINDEX, kapkp_pctoindex),
-    "kbpkp": Endgamekey(MAX_kapkp, MAX_PpINDEX, kapkp_pctoindex),
-    "knpkp": Endgamekey(MAX_kapkp, MAX_PpINDEX, kapkp_pctoindex),
+    "kqpkp": EndgameKey(MAX_kapkp, MAX_PpINDEX, kapkp_pctoindex),
+    "krpkp": EndgameKey(MAX_kapkp, MAX_PpINDEX, kapkp_pctoindex),
+    "kbpkp": EndgameKey(MAX_kapkp, MAX_PpINDEX, kapkp_pctoindex),
+    "knpkp": EndgameKey(MAX_kapkp, MAX_PpINDEX, kapkp_pctoindex),
 
-    "kpppk": Endgamekey(MAX_kpppk, MAX_PPP48_INDEX, kpppk_pctoindex),
+    "kpppk": EndgameKey(MAX_kpppk, MAX_PPP48_INDEX, kpppk_pctoindex),
 }
 
 
-def sortlists(ws, wp):
+def sortlists(ws: List[int], wp: List[int]) -> Tuple[List[int], List[int]]:
     z = sorted(zip(wp, ws), key=lambda x: x[0], reverse=True)
     wp2, ws2 = zip(*z)
     return list(ws2), list(wp2)
 
-def egtb_block_unpack(side, n, bp):
-    try:
-        return [dtm_unpack(side, i) for i in bp[:n]]
-    except TypeError:
-        return [dtm_unpack(side, ord(i)) for i in bp[:n]]
+def egtb_block_unpack(side: int, n: int, bp: bytes) -> List[int]:
+    return [dtm_unpack(side, i) for i in bp[:n]]
 
-def split_index(i):
+def split_index(i: int) -> Tuple[int, int]:
     return divmod(i, ENTRIES_PER_BLOCK)
 
 
@@ -1369,14 +1376,14 @@ iWMATEt = tb_WMATE | 4
 iBMATEt = tb_BMATE | 4
 
 
-def removepiece(ys, yp, j):
+def removepiece(ys: List[int], yp: List[int], j: int) -> None:
     del ys[j]
     del yp[j]
 
-def opp(side):
+def opp(side: int) -> int:
     return 1 if side == 0 else 0
 
-def adjust_up(dist):
+def adjust_up(dist: int) -> int:
     udist = dist
     sw = udist & INFOMASK
 
@@ -1385,7 +1392,7 @@ def adjust_up(dist):
 
     return udist
 
-def bestx(side, a, b):
+def bestx(side: int, a: int, b: int) -> int:
     # 0 = selectfirst
     # 1 = selectlowest
     # 2 = selecthighest
@@ -1414,10 +1421,10 @@ def bestx(side, a, b):
     key = comparison[a & 3][b & 3] ^ xorkey[side]
     return retu[key]
 
-def unpackdist(d):
+def unpackdist(d: int) -> Tuple[int, int]:
     return d >> PLYSHIFT, d & INFOMASK
 
-def dtm_unpack(stm, packed):
+def dtm_unpack(stm: int, packed: int) -> int:
     p = packed
 
     if p in [iDRAW, iFORBID]:
@@ -1487,59 +1494,64 @@ class MissingTableError(KeyError):
     """Can not probe position because a required table is missing."""
 
 
-class TableBlock(object):
-    def __init__(self, egkey, side, offset, age):
+class TableBlock:
+    pcache: List[int]
+
+    def __init__(self, egkey: str, side: int, offset: int, age: int):
         self.egkey = egkey
         self.side = side
         self.offset = offset
         self.age = age
-        self.pcache = None
 
 
-class Request(object):
-    def __init__(self, white_squares, white_types, black_squares, black_types, side, epsq):
+class Request:
+    egkey: str
+    white_piece_squares: List[int]
+    white_piece_types: List[int]
+    black_piece_squares: List[int]
+    black_piece_types: List[int]
+    is_reversed: bool
+
+    def __init__(self, white_squares: List[int], white_types: List[chess.PieceType], black_squares: List[int], black_types: List[chess.PieceType], side: int, epsq: int):
         self.white_squares, self.white_types = sortlists(white_squares, white_types)
         self.black_squares, self.black_types = sortlists(black_squares, black_types)
         self.realside = side
         self.side = side
         self.epsq = epsq
 
-        self.egkey = None
-        self.white_piece_squares = None
-        self.white_piece_types = None
-        self.black_piece_squares = None
-        self.black_piece_types = None
-        self.is_reversed = None
-        self.white_piece_squares = None
+
+@dataclasses.dataclass
+class ZipInfo:
+    extraoffset: int
+    totalblocks: int
+    blockindex: List[int]
 
 
-Zipinfo = collections.namedtuple("Zipinfo", "extraoffset totalblocks blockindex")
-
-
-class PythonTablebases(object):
+class PythonTablebase:
     """Provides access to Gaviota tablebases using pure Python code."""
 
-    def __init__(self, lzma):
-        self.lzma = lzma
+    def __init__(self) -> None:
+        self.available_tables: Dict[str, str] = {}
 
-        self.available_tables = {}
+        self.streams: Dict[str, BinaryIO] = {}
+        self.zipinfo: Dict[str, ZipInfo] = {}
 
-        self.streams = {}
-        self.zipinfo = {}
-
-        self.block_cache = {}
+        self.block_cache: Dict[Tuple[str, int, int], TableBlock] = {}
         self.block_age = 0
 
-    def open_directory(self, directory):
-        """Loads *.gtb.cp4* tables from a directory."""
+    def add_directory(self, directory: str) -> None:
+        """
+        Adds *.gtb.cp4* tables from a directory. The relevant files are lazily
+        opened when the tablebase is actually probed.
+        """
         directory = os.path.abspath(directory)
         if not os.path.isdir(directory):
-            raise IOError("not a directory: {}".format(repr(directory)))
+            raise IOError(f"not a directory: {directory!r}")
 
         for tbfile in fnmatch.filter(os.listdir(directory), "*.gtb.cp4"):
             self.available_tables[os.path.basename(tbfile).replace(".gtb.cp4", "")] = os.path.join(directory, tbfile)
 
-    def probe_dtm(self, board):
+    def probe_dtm(self, board: chess.Board) -> int:
         """
         Probes for depth to mate information.
 
@@ -1547,51 +1559,50 @@ class PythonTablebases(object):
         (or ``0`` in drawn positions). The value is positive if the
         side to move is winning, otherwise it is negative.
 
-        In the example position white to move will get mated in 10 half-moves:
+        In the example position, white to move will get mated in 10 half-moves:
 
         >>> import chess
         >>> import chess.gaviota
         >>>
-        >>> with chess.gaviota.open_tablebases("data/gaviota") as tablebases:
+        >>> with chess.gaviota.open_tablebase("data/gaviota") as tablebase:
         ...     board = chess.Board("8/8/8/8/8/8/8/K2kr3 w - - 0 1")
-        ...     print(tablebases.probe_dtm(board))
+        ...     print(tablebase.probe_dtm(board))
         ...
         -10
 
         :raises: :exc:`KeyError` (or specifically
             :exc:`chess.gaviota.MissingTableError`) if the probe fails. Use
-            :func:`~chess.gaviota.PythonTablebases.get_dtm()` if you prefer
+            :func:`~chess.gaviota.PythonTablebase.get_dtm()` if you prefer
             to get ``None`` instead of an exception.
+
+            Note that probing a corrupted table file is undefined behavior.
         """
         # Can not probe positions with castling rights.
         if board.castling_rights:
-            raise KeyError("gaviota tables do not contain positions with castling rights: {}".format(board.fen()))
+            raise KeyError(f"gaviota tables do not contain positions with castling rights: {board.fen()}")
+
+        # Supports only up to 5 pieces.
+        if chess.popcount(board.occupied) > 5:
+            raise KeyError(f"gaviota tables support up to 5 pieces, not {chess.popcount(board.occupied)}: {board.fen()}")
+
+        # KvK is a draw.
+        if board.occupied == board.kings:
+            return 0
 
         # Prepare the tablebase request.
-        white = [(square, board.piece_type_at(square)) for square in chess.SquareSet(board.occupied_co[chess.WHITE])]
-        black = [(square, board.piece_type_at(square)) for square in chess.SquareSet(board.occupied_co[chess.BLACK])]
-        white_squares, white_types = zip(*white)
-        black_squares, black_types = zip(*black)
+        white_squares = list(chess.SquareSet(board.occupied_co[chess.WHITE]))
+        white_types = [typing.cast(chess.PieceType, board.piece_type_at(sq)) for sq in white_squares]
+        black_squares = list(chess.SquareSet(board.occupied_co[chess.BLACK]))
+        black_types = [typing.cast(chess.PieceType, board.piece_type_at(sq)) for sq in black_squares]
         side = 0 if (board.turn == chess.WHITE) else 1
         epsq = board.ep_square if board.ep_square else NOSQUARE
         req = Request(white_squares, white_types, black_squares, black_types, side, epsq)
-
-        # KvK is a draw.
-        if len(white_squares) == 1 and len(black_squares) == 1:
-            return 0
-
-        # Only up to 5-men tablebases.
-        if len(white_squares) + len(black_squares) > 5:
-            raise KeyError("gaviota tables support up to 5 pieces, not {}: {}".format(chess.popcount(board.occupied), board.fen()))
 
         # Probe.
         dtm = self.egtb_get_dtm(req)
         ply, res = unpackdist(dtm)
 
-        if res == iDRAW:
-            # Draw.
-            return 0
-        elif res == iWMATE:
+        if res == iWMATE:
             # White mates in the stored position.
             if req.realside == 1:
                 if req.is_reversed:
@@ -1615,16 +1626,19 @@ class PythonTablebases(object):
                     return -ply
                 else:
                     return ply
+        else:
+            # Draw.
+            return 0
 
-    def get_dtm(self, board, default=None):
+    def get_dtm(self, board: chess.Board, default: Optional[int] = None) -> Optional[int]:
         try:
             return self.probe_dtm(board)
         except KeyError:
             return default
 
-    def probe_wdl(self, board):
+    def probe_wdl(self, board: chess.Board) -> int:
         """
-        Probes for win/draw/loss-information.
+        Probes for win/draw/loss information.
 
         Returns ``1`` if the side to move is winning, ``0`` if it is a draw,
         and ``-1`` if the side to move is losing.
@@ -1632,16 +1646,18 @@ class PythonTablebases(object):
         >>> import chess
         >>> import chess.gaviota
         >>>
-        >>> with chess.gaviota.open_tablebases("data/gaviota") as tablebases:
+        >>> with chess.gaviota.open_tablebase("data/gaviota") as tablebase:
         ...     board = chess.Board("8/4k3/8/B7/8/8/8/4K3 w - - 0 1")
-        ...     print(tablebases.probe_wdl(board))
+        ...     print(tablebase.probe_wdl(board))
         ...
         0
 
         :raises: :exc:`KeyError` (or specifically
             :exc:`chess.gaviota.MissingTableError`) if the probe fails. Use
-            :func:`~chess.gaviota.PythonTablebases.get_wdl()` if you prefer
+            :func:`~chess.gaviota.PythonTablebase.get_wdl()` if you prefer
             to get ``None`` instead of an exception.
+
+            Note that probing a corrupted table file is undefined behavior.
         """
         dtm = self.probe_dtm(board)
 
@@ -1652,18 +1668,18 @@ class PythonTablebases(object):
                 return 0
         elif dtm > 0:
             return 1
-        elif dtm < 0:
+        else:
             return -1
 
-    def get_wdl(self, board, default=None):
+    def get_wdl(self, board: chess.Board, default: Optional[int] = None) -> Optional[int]:
         try:
             return self.probe_wdl(board)
         except KeyError:
             return default
 
-    def _setup_tablebase(self, req):
-        white_letters = "".join([chess.PIECE_SYMBOLS[i] for i in req.white_types])
-        black_letters = "".join([chess.PIECE_SYMBOLS[i] for i in req.black_types])
+    def _setup_tablebase(self, req: Request) -> BinaryIO:
+        white_letters = "".join(chess.piece_symbol(i) for i in req.white_types)
+        black_letters = "".join(chess.piece_symbol(i) for i in req.black_types)
 
         if (white_letters + black_letters) in self.available_tables:
             req.is_reversed = False
@@ -1684,11 +1700,11 @@ class PythonTablebases(object):
             if req.epsq != NOSQUARE:
                 req.epsq = flip_ns(req.epsq)
         else:
-            raise MissingTableError("no gaviota table available for: {}v{}".format(white_letters.upper(), black_letters.upper()))
+            raise MissingTableError(f"no gaviota table available for: {white_letters.upper()}v{black_letters.upper()}")
 
         return self._open_tablebase(req)
 
-    def _open_tablebase(self, req):
+    def _open_tablebase(self, req: Request) -> BinaryIO:
         stream = self.streams.get(req.egkey)
 
         if stream is None:
@@ -1699,7 +1715,7 @@ class PythonTablebases(object):
 
         return stream
 
-    def close(self):
+    def close(self) -> None:
         """Closes all loaded tables."""
         self.available_tables.clear()
 
@@ -1712,7 +1728,7 @@ class PythonTablebases(object):
             _, stream = self.streams.popitem()
             stream.close()
 
-    def egtb_get_dtm(self, req):
+    def egtb_get_dtm(self, req: Request) -> int:
         dtm = self._tb_probe(req)
 
         if req.epsq != NOSQUARE:
@@ -1745,7 +1761,7 @@ class PythonTablebases(object):
             if 0 == (0x88 & (map88(xed) + 1)):
                 capturer_a = xed + 1
 
-            # Try second possible ep capture
+            # Try second possible ep capture.
             if 0 == (0x88 & (map88(xed) - 1)):
                 capturer_b = xed - 1
 
@@ -1776,14 +1792,14 @@ class PythonTablebases(object):
                             epscore = self._tb_probe(subreq)
                             epscore = adjust_up(epscore)
 
-                            # Chooses to ep or not.
+                            # Choose to ep or not.
                             dtm = bestx(req.side, epscore, dtm)
                         except IndexError:
                             break
 
         return dtm
 
-    def egtb_block_getnumber(self, req, idx):
+    def egtb_block_getnumber(self, req: Request, idx: int) -> int:
         maxindex = EGKEY[req.egkey].maxindex
 
         blocks_per_side = 1 + (maxindex - 1) // ENTRIES_PER_BLOCK
@@ -1791,18 +1807,18 @@ class PythonTablebases(object):
 
         return req.side * blocks_per_side + block_in_side
 
-    def egtb_block_getsize(self, req, idx):
+    def egtb_block_getsize(self, req: Request, idx: int) -> int:
         blocksz = ENTRIES_PER_BLOCK
         maxindex = EGKEY[req.egkey].maxindex
         block = idx // blocksz
         offset = block * blocksz
 
         if (offset + blocksz) > maxindex:
-            return maxindex - offset  # last block size
+            return maxindex - offset  # Last block size
         else:
-            return blocksz  # size of a normal block
+            return blocksz  # Size of a normal block
 
-    def _tb_probe(self, req):
+    def _tb_probe(self, req: Request) -> int:
         stream = self._setup_tablebase(req)
         idx = EGKEY[req.egkey].pctoi(req)
         offset, remainder = split_index(idx)
@@ -1823,7 +1839,7 @@ class PythonTablebases(object):
                 # If flag is zero, plain LZMA is following.
                 buffer_zipped = buffer_zipped[2:]
             else:
-                # Else LZMA86. We have to build a fake header.
+                # Else LZMA86. Build a fake header.
                 DICTIONARY_SIZE = 4096
                 POS_STATE_BITS = 2
                 NUM_LITERAL_POS_STATE_BITS = 0
@@ -1838,19 +1854,14 @@ class PythonTablebases(object):
                 # Concatenate the fake header with the true LZMA stream.
                 buffer_zipped = properties + buffer_zipped[15:]
 
-            buffer_packed = self.lzma.LZMADecompressor().decompress(buffer_zipped)
+            buffer_packed = lzma.LZMADecompressor().decompress(buffer_zipped)
 
             t.pcache = egtb_block_unpack(req.side, n, buffer_packed)
 
             # Update LRU block cache.
             self.block_cache[(t.egkey, t.offset, t.side)] = t
             if len(self.block_cache) > 128:
-                lru_cache_key, lru_age = None, None
-                for cache_key, cache_entry in self.block_cache.items():
-                    if lru_age is None or cache_entry.age < lru_age:
-                        lru_cache_key = cache_key
-                        lru_age = cache_entry.age
-
+                lru_cache_key = min(self.block_cache, key=lambda cache_key: self.block_cache[cache_key].age)
                 del self.block_cache[lru_cache_key]
         else:
             t.age = self.block_age
@@ -1860,7 +1871,7 @@ class PythonTablebases(object):
 
         return dtm
 
-    def egtb_loadindexes(self, egkey, stream):
+    def egtb_loadindexes(self, egkey: str, stream: BinaryIO) -> ZipInfo:
         zipinfo = self.zipinfo.get(egkey)
 
         if zipinfo is None:
@@ -1874,39 +1885,39 @@ class PythonTablebases(object):
             n_idx = blocks + 1
 
             IndexStruct = struct.Struct("<" + "I" * n_idx)
-            p = IndexStruct.unpack(stream.read(IndexStruct.size))
+            p = list(IndexStruct.unpack(stream.read(IndexStruct.size)))
 
-            zipinfo = Zipinfo(extraoffset=0, totalblocks=n_idx, blockindex=p)
+            zipinfo = ZipInfo(extraoffset=0, totalblocks=n_idx, blockindex=p)
             self.zipinfo[egkey] = zipinfo
 
         return zipinfo
 
-    def egtb_block_getsize_zipped(self, egkey, block):
+    def egtb_block_getsize_zipped(self, egkey: str, block: int) -> int:
         i = self.zipinfo[egkey].blockindex[block]
         j = self.zipinfo[egkey].blockindex[block + 1]
         return j - i
 
-    def egtb_block_park(self, egkey, block, stream):
+    def egtb_block_park(self, egkey: str, block: int, stream: BinaryIO) -> int:
         i = self.zipinfo[egkey].blockindex[block]
         i += self.zipinfo[egkey].extraoffset
         stream.seek(i)
         return i
 
-    def __enter__(self):
+    def __enter__(self) -> PythonTablebase:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[TracebackType]) -> None:
         self.close()
 
 
-class NativeTablebases(object):
+class NativeTablebase:
     """
     Provides access to Gaviota tablebases via the shared library libgtb.
-    Has the same interface as :class:`~chess.gaviota.PythonTablebases`.
+    Has the same interface as :class:`~chess.gaviota.PythonTablebase`.
     """
 
-    def __init__(self, libgtb):
-        self.paths = []
+    def __init__(self, libgtb: ctypes.CDLL) -> None:
+        self.paths: List[str] = []
 
         self.libgtb = libgtb
         self.libgtb.tb_init.restype = ctypes.c_char_p
@@ -1929,14 +1940,14 @@ class NativeTablebases(object):
 
         self._tbcache_restart(1024 * 1024, 50)
 
-    def open_directory(self, directory):
+    def add_directory(self, directory: str) -> None:
         if not os.path.isdir(directory):
-            raise IOError("not a directory: {}".format(repr(directory)))
+            raise IOError(f"not a directory: {directory!r}")
 
         self.paths.append(directory)
         self._tb_restart()
 
-    def _tb_restart(self):
+    def _tb_restart(self) -> None:
         self.c_paths = (ctypes.c_char_p * len(self.paths))()
         self.c_paths[:] = [path.encode("utf-8") for path in self.paths]
 
@@ -1951,48 +1962,48 @@ class NativeTablebases(object):
 
         av = self.libgtb.tb_availability()
         if av & 1:
-            LOGGER.debug("Some 3 piece tablebases available")
+            LOGGER.debug("Some 3-piece tables available")
         if av & 2:
-            LOGGER.debug("All 3 piece tablebases complete")
+            LOGGER.debug("All 3-piece tables complete")
         if av & 4:
-            LOGGER.debug("Some 4 piece tablebases available")
+            LOGGER.debug("Some 4-piece tables available")
         if av & 8:
-            LOGGER.debug("All 4 piece tablebases complete")
+            LOGGER.debug("All 4-piece tables complete")
         if av & 16:
-            LOGGER.debug("Some 5 piece tablebases available")
+            LOGGER.debug("Some 5-piece tables available")
         if av & 32:
-            LOGGER.debug("All 5 piece tablebases complete")
+            LOGGER.debug("All 5-piece tables complete")
 
-    def _tbcache_restart(self, cache_mem, wdl_fraction):
+    def _tbcache_restart(self, cache_mem: int, wdl_fraction: int) -> None:
         self.libgtb.tbcache_restart(ctypes.c_size_t(cache_mem), ctypes.c_int(wdl_fraction))
 
-    def probe_dtm(self, board):
+    def probe_dtm(self, board: chess.Board) -> int:
         return self._probe_hard(board)
 
-    def probe_wdl(self, board):
+    def probe_wdl(self, board: chess.Board) -> int:
         return self._probe_hard(board, wdl_only=True)
 
-    def get_dtm(self, board, default=None):
+    def get_dtm(self, board: chess.Board, default: Optional[int] = None) -> Optional[int]:
         try:
             return self.probe_dtm(board)
         except KeyError:
             return default
 
-    def get_wdl(self, board, default=None):
+    def get_wdl(self, board: chess.Board, default: Optional[int] = None) -> Optional[int]:
         try:
             return self.probe_wdl(board)
         except KeyError:
             return default
 
-    def _probe_hard(self, board, wdl_only=False):
+    def _probe_hard(self, board: chess.Board, wdl_only: bool = False) -> int:
         if board.is_insufficient_material():
             return 0
 
         if board.castling_rights:
-            raise KeyError("gaviota tables do not contain positions with castling rights: {}".format(board.fen()))
+            raise KeyError(f"gaviota tables do not contain positions with castling rights: {board.fen()}")
 
         if chess.popcount(board.occupied) > 5:
-            raise KeyError("gaviota tables support up to 5 pieces, not {}: {}".format(chess.popcount(board.occupied), board.fen()))
+            raise KeyError(f"gaviota tables support up to 5 pieces, not {chess.popcount(board.occupied)}: {board.fen()}")
 
         stm = ctypes.c_uint(0 if board.turn == chess.WHITE else 1)
         ep_square = ctypes.c_uint(board.ep_square if board.ep_square else 64)
@@ -2004,7 +2015,7 @@ class NativeTablebases(object):
         i = -1
         for i, square in enumerate(chess.SquareSet(board.occupied_co[chess.WHITE])):
             c_ws[i] = square
-            c_wp[i] = board.piece_type_at(square)
+            c_wp[i] = typing.cast(chess.PieceType, board.piece_type_at(square))
 
         c_ws[i + 1] = 64
         c_wp[i + 1] = 0
@@ -2015,7 +2026,7 @@ class NativeTablebases(object):
         i = -1
         for i, square in enumerate(chess.SquareSet(board.occupied_co[chess.BLACK])):
             c_bs[i] = square
-            c_bp[i] = board.piece_type_at(square)
+            c_bp[i] = typing.cast(chess.PieceType, board.piece_type_at(square))
 
         c_bs[i + 1] = 64
         c_bp[i + 1] = 0
@@ -2032,79 +2043,69 @@ class NativeTablebases(object):
 
         # Probe forbidden.
         if info.value == 3:
-            raise MissingTableError("gaviota table for {} not available".format(board.fen()))
-
-        # Probe failed or unknown.
-        if not ret or info.value == 7:
-            raise KeyError("gaviota probe failed for {}".format(board.fen()))
+            raise MissingTableError(f"gaviota table for {board.fen()} not available")
 
         # Draw.
-        if info.value == 0:
+        if ret and info.value == 0:
             return 0
 
         # White mates.
-        if info.value == 1:
+        if ret and info.value == 1:
             return dtm if board.turn == chess.WHITE else -dtm
 
         # Black mates.
-        if info.value == 2:
+        if ret and info.value == 2:
             return dtm if board.turn == chess.BLACK else -dtm
 
-    def close(self):
+        raise KeyError(f"gaviota probe failed for {board.fen()}")
+
+    def close(self) -> None:
         self.paths = []
 
         if self.libgtb.tb_is_initialized():
             self.libgtb.tbcache_done()
             self.libgtb.tb_done()
 
-    def __enter__(self):
+    def __enter__(self) -> NativeTablebase:
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type: Optional[Type[BaseException]], exc_value: Optional[BaseException], traceback: Optional[TracebackType]) -> None:
         self.close()
 
 
-def open_tablebases_native(directory, libgtb=None, LibraryLoader=ctypes.cdll):
+def open_tablebase_native(directory: str, *, libgtb: Optional[str] = None, LibraryLoader: ctypes.LibraryLoader[ctypes.CDLL] = ctypes.cdll) -> NativeTablebase:
     """
-    Opens a collection of tablebases for probing using libgtb.
+    Opens a collection of tables for probing using libgtb.
 
-    In most cases :func:`~chess.gaviota.open_tablebases()` should be used.
+    In most cases :func:`~chess.gaviota.open_tablebase()` should be used.
     Use this function only if you do not want to downgrade to pure Python
     tablebase probing.
 
     :raises: :exc:`RuntimeError` or :exc:`OSError` when libgtb can not be used.
     """
     libgtb = libgtb or ctypes.util.find_library("gtb") or "libgtb.so.1.0.1"
-    tables = NativeTablebases(LibraryLoader.LoadLibrary(libgtb))
-    tables.open_directory(directory)
+    tables = NativeTablebase(LibraryLoader.LoadLibrary(libgtb))
+    tables.add_directory(directory)
     return tables
 
 
-def open_tablebases(directory, libgtb=None, LibraryLoader=ctypes.cdll):
+def open_tablebase(directory: str, *, libgtb: Optional[str] = None, LibraryLoader: ctypes.LibraryLoader[ctypes.CDLL] = ctypes.cdll) -> Union[NativeTablebase, PythonTablebase]:
     """
-    Opens a collection of tablebases for probing.
+    Opens a collection of tables for probing.
 
     First native access via the shared library libgtb is tried. You can
     optionally provide a specific library name or a library loader.
     The shared library has global state and caches, so only one instance can
     be open at a time.
 
-    Second pure Python probing code is tried.
+    Second, pure Python probing code is tried.
     """
     try:
         if LibraryLoader:
-            return open_tablebases_native(directory, libgtb, LibraryLoader)
+            return open_tablebase_native(directory, libgtb=libgtb, LibraryLoader=LibraryLoader)
     except (OSError, RuntimeError) as err:
-        LOGGER.info("Falling back to pure Python tablebases: %r", err)
+        LOGGER.info("Falling back to pure Python tablebase: %r", err)
 
-    try:
-        import lzma
-    except ImportError:
-        try:
-            from backports import lzma
-        except ImportError:
-            raise ImportError("chess.gaviota requires backports.lzma or libgtb")
-
-    tables = PythonTablebases(lzma)
-    tables.open_directory(directory)
+    tables = PythonTablebase()
+    tables.add_directory(directory)
     return tables
