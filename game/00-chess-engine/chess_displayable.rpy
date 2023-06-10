@@ -510,7 +510,7 @@ init python:
                 return
 
             # prompt player to claim draw if threefold or fifty-move occurs
-            if self.board.can_claim_threefold_repetition:
+            if self.board.can_claim_threefold_repetition():
                 self.game_status == THREEFOLD
                 self.show_claim_draw_ui(reason='Threefold repetition rule: ')
             if self.board.can_claim_fifty_moves():
@@ -581,6 +581,7 @@ init python:
             self.check_game_status()
             self.show_promotion_ui = False
             self.promotion = None
+            self.whose_turn = not self.whose_turn # get the oppsite color
 
         def undo_move(self):
             """
