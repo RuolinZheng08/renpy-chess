@@ -27,13 +27,10 @@ label chess_game:
 
         "Player vs. Player":
             $ player_color = None # None for Player vs. Player
-            $ movetime = None
             $ depth = None
 
         "Player vs. Computer":
             # initialize other variables used by the stockfish engine in stockfish.go()
-            $ movetime = 2000
-
             menu:
                 "Please select a difficulty level"
 
@@ -65,7 +62,7 @@ label chess_game:
     # disable Esc key menu to prevent the player from saving the game
     $ _game_menu_screen = None
 
-    call screen chess(fen, player_color, movetime, depth)
+    call screen chess(fen, player_color, depth)
 
     # re-enable the Esc key menu
     $ _game_menu_screen = 'save'

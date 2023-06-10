@@ -53,8 +53,6 @@ define PIECE_TYPES = ('p', 'r', 'b', 'n', 'k', 'q')
 define NUM_HISTORY = 5
 
 # stockfish params
-define MIN_MOVETIME = 100 # min thinking time in milliseconds
-define MAX_MOVETIME = 3000 # max thinking time in milliseconds
 define MIN_DEPTH = 1
 define MAX_DEPTH = 20
 
@@ -104,7 +102,7 @@ style control_button_text is text:
 
 # BEGIN SCREEN
 
-screen chess(fen, player_color, movetime, depth):
+screen chess(fen, player_color, depth):
     
     modal True
 
@@ -112,7 +110,6 @@ screen chess(fen, player_color, movetime, depth):
     default chess_displayable = ChessDisplayable(
         fen=fen, 
         player_color=player_color, 
-        movetime=movetime, 
         depth=depth
         )
 
@@ -280,7 +277,7 @@ init python:
         Else, use Player vs. Stockfish mode
         player_color: None, chess.WHITE, chess.BLACK
         """
-        def __init__(self, fen=STARTING_FEN, player_color=None, movetime=2000, depth=10):
+        def __init__(self, fen=STARTING_FEN, player_color=None, depth=10):
             super(ChessDisplayable, self).__init__()
             self.board = chess.Board(fen)
 
@@ -302,8 +299,7 @@ init python:
                 self.engine = STOCKFISH_ENGINE
                 self.engine_limit = chess.engine.Limit(depth=depth)
 
-                # validate stockfish params movetime and depth
-                movetime = movetime if MIN_MOVETIME <= movetime <= MAX_MOVETIME else MAX_MOVETIME
+                # validate stockfish params and depth
                 depth = depth if MIN_DEPTH <= depth <= MAX_DEPTH else MAX_DEPTH
                 
             # displayables
