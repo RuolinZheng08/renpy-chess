@@ -72,7 +72,7 @@ define CHECKMATE = 5 # chess.WHITE is True i.e. 1 and chess.BLACK is False i.e. 
 define STALEMATE = 6
 
 # END ENUM
-
+# NOTE: must init the engine outside renpy's displayable init
 default STOCKFISH_ENGINE = None
 # END DEF
 
@@ -205,7 +205,6 @@ init python:
 
     import os
     import sys
-    import atexit # for registering clean up funcs
     import pygame
     from collections import deque # track move history
 
@@ -239,6 +238,17 @@ init python:
     build.executable(os.path.join(stockfish_dir, 'stockfish_20011801_x64')) # linux
 
     STOCKFISH = os.path.join(stockfish_dir, stockfish_bin)
+
+    def quit_stockfish():
+        global STOCKFISH_ENGINE
+        if STOCKFISH_ENGINE is not None:
+            STOCKFISH_ENGINE.quit()
+            STOCKFISH_ENGINE = None
+
+    # kill stockfish engine upon quitting the game
+    config.quit_action = Confirm('Are you sure you want to quit?',
+        yes=[Function(quit_stockfish), Quit()],
+        no=NullAction())
 
     class HoverDisplayable(renpy.Displayable):
         """
@@ -289,11 +299,8 @@ init python:
                 self.bottom_color = self.player_color # player color on the bottom
                 self.uses_stockfish = True
 
-                self.engine = chess.engine.SimpleEngine.popen_uci(STOCKFISH, startupinfo=STARTUPINFO)
+                self.engine = STOCKFISH_ENGINE
                 self.engine_limit = chess.engine.Limit(depth=depth)
-
-                # FIXME
-                atexit.register(self.engine.quit)
 
                 # validate stockfish params movetime and depth
                 movetime = movetime if MIN_MOVETIME <= movetime <= MAX_MOVETIME else MAX_MOVETIME
@@ -578,10 +585,10 @@ init python:
             self.legal_dsts = []
             renpy.redraw(self, 0)
 
+            self.whose_turn = not self.whose_turn # get the oppsite color
             self.check_game_status()
             self.show_promotion_ui = False
             self.promotion = None
-            self.whose_turn = not self.whose_turn # get the oppsite color
 
         def undo_move(self):
             """

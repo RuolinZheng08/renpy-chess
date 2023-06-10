@@ -20,6 +20,7 @@ label start:
 label chess_game:
     # board notation
     $ fen = STARTING_FEN
+    $ STOCKFISH_ENGINE = chess.engine.SimpleEngine.popen_uci(STOCKFISH, startupinfo=STARTUPINFO)
 
     menu:
         "Please select the game mode."
@@ -74,6 +75,9 @@ label chess_game:
 
     # restore rollback from this point on
     $ renpy.checkpoint()
+
+    # kill stockfish engine
+    $ quit_stockfish()
 
     $ quick_menu = True
     window show
