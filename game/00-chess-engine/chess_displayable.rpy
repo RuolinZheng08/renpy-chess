@@ -53,8 +53,6 @@ define PIECE_TYPES = ('p', 'r', 'b', 'n', 'k', 'q')
 define NUM_HISTORY = 5
 
 # stockfish params
-define MIN_MOVETIME = 100 # min thinking time in milliseconds
-define MAX_MOVETIME = 3000 # max thinking time in milliseconds
 define MIN_DEPTH = 1
 define MAX_DEPTH = 20
 
@@ -62,10 +60,6 @@ define MAX_DEPTH = 20
 define STARTING_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
 # BEGIN ENUM
-# color
-define WHITE = True
-define BLACK = False
-
 # status code enum
 define INCHECK = 1
 define THREEFOLD = 2
@@ -76,6 +70,8 @@ define CHECKMATE = 5 # chess.WHITE is True i.e. 1 and chess.BLACK is False i.e. 
 define STALEMATE = 6
 
 # END ENUM
+# NOTE: must init the engine outside renpy's displayable init
+default STOCKFISH_ENGINE = None
 # END DEF
 
 # BEGIN STYLE
@@ -106,16 +102,14 @@ style control_button_text is text:
 
 # BEGIN SCREEN
 
-screen chess(chess_subprocess, fen, player_color, movetime, depth):
+screen chess(fen, player_color, depth):
     
     modal True
 
     default hover_displayable = HoverDisplayable()
     default chess_displayable = ChessDisplayable(
-        chess_subprocess,
         fen=fen, 
         player_color=player_color, 
-        movetime=movetime, 
         depth=depth
         )
 
@@ -124,7 +118,7 @@ screen chess(chess_subprocess, fen, player_color, movetime, depth):
     # left top panel for diplaying whoseturn text
     fixed xpos 20 ypos 80 spacing 40:
         vbox:
-            showif chess_displayable.whose_turn == WHITE:
+            showif chess_displayable.whose_turn == chess.WHITE:
                 text 'Whose turn: White' style 'game_status_text'
             else:
                 text 'Whose turn: Black' style 'game_status_text'
@@ -141,7 +135,7 @@ screen chess(chess_subprocess, fen, player_color, movetime, depth):
 
             text 'Most recent moves' style 'game_status_text' xalign 0.5
             for move in chess_displayable.history:
-                text (move) style 'game_status_text' xalign 0.5
+                text move.uci() style 'game_status_text' xalign 0.5
 
     # left bottom
     fixed xpos 20 ypos 500:
@@ -150,10 +144,11 @@ screen chess(chess_subprocess, fen, player_color, movetime, depth):
                 text 'Resign' color COLOR_WHITE yalign 0.5
                 textbutton '⚐':
                     action [Confirm('Would you like to resign?', 
-                        yes=[Play('sound', AUDIO_DRAW),
-                        Function(chess_displayable.kill_chess_subprocess_stockfish), 
+                        yes=[
+                        Play('sound', AUDIO_DRAW),
                         # if the current player resigns, the winner will be the opposite side
-                        Return(not chess_displayable.whose_turn)])]
+                        Return(not chess_displayable.whose_turn)
+                        ])]
                     style 'control_button' yalign 0.5
 
             hbox spacing 5:
@@ -178,12 +173,10 @@ screen chess(chess_subprocess, fen, player_color, movetime, depth):
         if chess_displayable.game_status == CHECKMATE:
             # use a timer so the player can see the screen once again
             timer 4.0 action [
-            Function(chess_displayable.kill_chess_subprocess_stockfish), 
             Return(chess_displayable.winner)
             ]
         elif chess_displayable.game_status == STALEMATE:
             timer 4.0 action [
-            Function(chess_displayable.kill_chess_subprocess_stockfish), 
             Return(DRAW)
             ]
 
@@ -204,32 +197,55 @@ screen chess(chess_subprocess, fen, player_color, movetime, depth):
 # END SCREEN
 
 init python:
-
     # use UCI for move notations and FEN for board and move history
     # terms like cursor and coord, Stockfish and AI may be used interchangably
 
     import os
     import sys
     import pygame
-    import subprocess # for communicating with the chess engine
     from collections import deque # track move history
 
+    import_dir = os.path.join(renpy.config.gamedir, THIS_PATH, 'python-packages')
+    sys.path.append(import_dir)
+
+    import chess
+    import chess.engine
+    
     # stockfish engine is OS-dependent
+    stockfish_bin = None
+    STARTUPINFO = None
     if renpy.android:
-        STOCKFISH = 'stockfish-10-armv7' # 32 bit
+        stockfish_bin = 'stockfish-10-armv7' # 32 bit
     elif renpy.ios:
-        STOCKFISH = 'stockfish-11-64' # FIXME: no iOS stockfish available
+        stockfish_bin = 'stockfish-11-64' # FIXME: no iOS stockfish available
     elif renpy.linux:
-        STOCKFISH = 'stockfish_20011801_x64'
+        stockfish_bin = 'stockfish_20011801_x64'
     elif renpy.macintosh:
-        STOCKFISH = 'stockfish-11-64'
+        stockfish_bin = 'stockfish-11-64'
     elif renpy.windows:
-        STOCKFISH = 'stockfish_20011801_x64.exe'
+        stockfish_bin = 'stockfish_20011801_x64.exe'
+        STARTUPINFO = subprocess.STARTUPINFO()
+        STARTUPINFO.dwFlags = subprocess.STARTF_USESHOWWINDOW
+    else:
+        raise Exception('No stockfish binary found for your system')
 
     # mark the Mac and Linux stockfish binaries as executable
-    stockfish_dir = os.path.join('game', THIS_PATH, BIN_PATH)
+    stockfish_dir = os.path.join(renpy.config.gamedir, THIS_PATH, BIN_PATH)
     build.executable(os.path.join(stockfish_dir, 'stockfish-11-64')) # mac
     build.executable(os.path.join(stockfish_dir, 'stockfish_20011801_x64')) # linux
+
+    STOCKFISH = os.path.join(stockfish_dir, stockfish_bin)
+
+    def quit_stockfish():
+        global STOCKFISH_ENGINE
+        if STOCKFISH_ENGINE is not None:
+            STOCKFISH_ENGINE.quit()
+            STOCKFISH_ENGINE = None
+
+    # kill stockfish engine upon quitting the game
+    config.quit_action = Confirm('Are you sure you want to quit?',
+        yes=[Function(quit_stockfish), Quit()],
+        no=NullAction())
 
     class HoverDisplayable(renpy.Displayable):
         """
@@ -261,13 +277,11 @@ init python:
         Else, use Player vs. Stockfish mode
         player_color: None, chess.WHITE, chess.BLACK
         """
-        def __init__(self, chess_subprocess, fen=STARTING_FEN, player_color=None, movetime=2000, depth=10):
+        def __init__(self, fen=STARTING_FEN, player_color=None, depth=10):
             super(ChessDisplayable, self).__init__()
+            self.board = chess.Board(fen)
 
-            self.chess_subprocess = chess_subprocess
-            self.has_initialized_chess_subprocess = False
-
-            self.whose_turn = WHITE
+            self.whose_turn = chess.WHITE
             self.has_flipped_board = False # for flipping board view
 
             self.history = deque([], NUM_HISTORY)
@@ -275,15 +289,17 @@ init python:
             self.player_color = player_color
 
             if self.player_color is None: # player vs player
-                self.bottom_color = WHITE # white on the bottom of screen by default
+                self.bottom_color = chess.WHITE # white on the bottom of screen by default
                 self.uses_stockfish = False # no AI
 
             else: # player vs computer
                 self.bottom_color = self.player_color # player color on the bottom
                 self.uses_stockfish = True
 
-                # validate stockfish params movetime and depth
-                movetime = movetime if MIN_MOVETIME <= movetime <= MAX_MOVETIME else MAX_MOVETIME
+                self.engine = STOCKFISH_ENGINE
+                self.engine_limit = chess.engine.Limit(depth=depth)
+
+                # validate stockfish params and depth
                 depth = depth if MIN_DEPTH <= depth <= MAX_DEPTH else MAX_DEPTH
                 
             # displayables
@@ -308,21 +324,6 @@ init python:
             self.winner = None # None for stalemate
 
         def render(self, width, height, st, at):
-            # first call to render will initialize the board
-            # this is because any communication with the subprocess
-            # must be taken out of the init method of the displayable
-            if not self.has_initialized_chess_subprocess:
-                self.chess_subprocess.stdin.write('#'.join(['fen', fen, '\n']))
-                # no return code to parse
-                self.has_initialized_chess_subprocess = True
-
-                if self.uses_stockfish: # Player vs. Computer
-                    # load appropraite stockfish binary in subprocess
-                    stockfish_path = os.path.abspath(os.path.join(renpy.config.gamedir, THIS_PATH, BIN_PATH, STOCKFISH))
-                    self.chess_subprocess.stdin.write('#'.join([
-                        'stockfish', stockfish_path, str(renpy.windows), str(movetime), str(depth), '\n']))
-                    # no return code to parse
-
             render = renpy.Render(width, height)
 
             # render selected loc
@@ -344,10 +345,10 @@ init python:
             for file_idx in range(INDEX_MIN, INDEX_MAX + 1):
                 for rank_idx in range(INDEX_MIN, INDEX_MAX + 1):
                     # the symbol P, N, B, R, Q or K for white pieces or the lower-case variants for the black pieces
-                    piece = self.get_piece_at(file_idx, rank_idx)
-                    if piece in self.piece_imgs: # piece could be None
+                    piece = self.board.piece_at(chess.square(file_idx, rank_idx))
+                    if piece and piece.symbol() in self.piece_imgs: # piece could be None
                         piece_coord = indices_to_coord(file_idx, rank_idx, bottom_color=self.bottom_color)
-                        render.place(self.piece_imgs[piece], 
+                        render.place(self.piece_imgs[piece.symbol()], 
                             x=piece_coord[0], y=piece_coord[1])
 
             renpy.restart_interaction() # force refresh the screen
@@ -361,9 +362,8 @@ init python:
 
             # skip GUI interaction for AI's turn in Player vs. AI mode
             if self.uses_stockfish and self.whose_turn != self.player_color:
-                self.chess_subprocess.stdin.write('stockfish_move\n')
-                move = self.chess_subprocess.stdout.readline().strip()
-                self.make_move(move)
+                result = self.engine.play(self.board, self.engine_limit)
+                self.make_move(result.move)
                 return
 
             # XXX: in developer mode only, open up the UI for promotion or for claiming draw
@@ -396,10 +396,8 @@ init python:
                     src_coord = round_coord(x, y)
                     src_file, src_rank = coord_to_square(src_coord, bottom_color=self.bottom_color)
                     # redraw if there is a piece of the current player's color on square
-                    piece = self.get_piece_at(src_file, src_rank)
-                    # white pieces are upper case, WHITE = True
-                    # hence piece.color is equivalent to piece.isupper()
-                    if piece and piece.isupper() == self.whose_turn:
+                    piece = self.board.piece_at(chess.square(src_file, src_rank))
+                    if piece and piece.color == self.whose_turn:
                         self.src_coord = src_coord
                         # get legal destinations for redrawing
                         self.get_legal_dsts(src_file, src_rank)
@@ -425,8 +423,8 @@ init python:
                         return
 
                     # if player selects a piece of their color, change selection to that piece
-                    piece = self.get_piece_at(dst_file, dst_rank)
-                    if piece and piece.isupper() == self.whose_turn:
+                    piece = self.board.piece_at(chess.square(dst_file, dst_rank))
+                    if piece and piece.color == self.whose_turn:
                         # repeat code from first click
                         # change selection to the second-click piece
                         self.src_coord = dst_coord
@@ -441,15 +439,18 @@ init python:
                         renpy.redraw(self, 0)
                         return
 
-                    # construct move uci and pass to subprocess to validate
-                    move = construct_move_uci(src_file, src_rank, dst_file, dst_rank, promotion=self.promotion)
+                    # construct move uci
+                    move = chess.Move(
+                        chess.square(src_file, src_rank),
+                        chess.square(dst_file, dst_rank),
+                        self.promotion
+                        )
 
                     # needs promotion but the player hasn't select a piece to promote to
-                    # if has promotion, len(move) should be 5, for ex, 'a7a8q'
-                    if self.show_promotion_ui and len(move) == 4:
+                    if self.show_promotion_ui and move.promotion:
                         renpy.notify('Please select a piece type to promote to')
 
-                    if move in self.get_legal_moves():
+                    if move in self.board.legal_moves:
                         self.make_move(move)
                     # otherwise the piece selection remains unchanged
                     # waiting for the player to select a valid move
@@ -471,22 +472,20 @@ init python:
         def has_promoting_piece(self, file_idx, rank_idx):
             # check if the square identified by file and rank contains a promoting piece
             # i.e. a pawn on the second to last row, of the current player color
-            piece = self.get_piece_at(file_idx, rank_idx)
-            if not piece or not piece in ['p', 'P'] or not piece.isupper() == self.whose_turn:
+            piece = self.board.piece_at(chess.square(file_idx, rank_idx))
+            if not piece or not piece.symbol() in ['p', 'P'] or not piece.color == self.whose_turn:
                 return False
-            if piece.isupper(): # white
+            if piece.color == chess.WHITE:
                 return rank_idx == PROMOTION_RANK_WHITE
             else:
                 return rank_idx == PROMOTION_RANK_BLACK
 
         def play_move_audio(self, move):
-            if len(move) == 5: # has promotion
+            if move.promotion: # has promotion
                 renpy.sound.play(AUDIO_PROMOTION)
             else:
-                # check subprocess to see if the move is a capture
-                self.chess_subprocess.stdin.write('#'.join(['is_capture', move, '\n']))
-                is_capture = eval(self.chess_subprocess.stdout.readline().strip())
-                if is_capture:
+                # check if the move is a capture
+                if self.board.is_capture(move):
                     renpy.sound.play(AUDIO_CAPTURE)
                 else:
                     renpy.sound.play(AUDIO_MOVE)
@@ -496,10 +495,9 @@ init python:
             Check if is checkmate, in check, or stalemate
             and update status text display accordingly
             """
-            self.chess_subprocess.stdin.write('game_status\n')
-            self.game_status = int(self.chess_subprocess.stdout.readline().strip())
             # need is_checkmate and is_stalemate before is_check
-            if self.game_status == CHECKMATE:
+            if self.board.is_checkmate():
+                self.game_status = CHECKMATE
                 renpy.sound.play(AUDIO_CHECKMATE)
                 # after a move, if it's white's turn, that means black has
                 # just moved and put white into checkmate, thus winner is black
@@ -508,22 +506,25 @@ init python:
                 self.winner = not self.whose_turn
                 return
 
-            if self.game_status == STALEMATE:
+            if self.board.is_stalemate():
+                self.game_status = STALEMATE
                 renpy.sound.play(AUDIO_DRAW)
                 renpy.notify('Stalemate')
                 return
 
             # prompt player to claim draw if threefold or fifty-move occurs
-            if self.game_status == THREEFOLD:
+            if self.board.can_claim_threefold_repetition():
+                self.game_status == THREEFOLD
                 self.show_claim_draw_ui(reason='Threefold repetition rule: ')
-            if self.game_status == FIFTYMOVES:
+            if self.board.can_claim_fifty_moves():
+                self.game_status == FIFTYMOVES
                 self.show_claim_draw_ui(reason='Fifty moves rule: ')
 
             # game resumes
-            if self.game_status == INCHECK:
+            if self.board.is_check():
+                self.game_status = INCHECK 
                 renpy.sound.play(AUDIO_CHECK)
-
-            else: # subprocess might have printed -1
+            else:
                 self.game_status = None
 
         def show_claim_draw_ui(self, reason=''):
@@ -532,26 +533,33 @@ init python:
             """
             renpy.show_screen('confirm', 
                 message=reason + 'Would you like to claim draw?', 
-                yes_action=[Hide('confirm'), 
-                Play('sound', AUDIO_DRAW),
-                Function(chess_displayable.kill_chess_subprocess_stockfish), 
-                Return(DRAW)], 
+                yes_action=[
+                    Hide('confirm'),
+                    Play('sound', AUDIO_DRAW),
+                    Return(DRAW)
+                ], 
                 no_action=Hide('confirm'))
             renpy.restart_interaction()
 
         def add_highlight_move(self, move):
-            src_file, src_rank, dst_file, dst_rank = move_uci_to_file_rank(move)
+            src_file = chess.square_file(move.from_square)
+            src_rank = chess.square_rank(move.from_square)
+            dst_file = chess.square_file(move.to_square)
+            dst_rank = chess.square_rank(move.to_square)
             self.highlighted_squares = [(src_file, src_rank), (dst_file, dst_rank)]
 
-        # START function definitions that make call to helper functions that communicate with the subprocess
+        # START function definitions that make call to helper functions
         def get_legal_dsts(self, src_file, src_rank):
             """
             filter the destination squares from the legal moves
             """
             self.legal_dsts = []
-            legal_moves = self.get_legal_moves()
+            legal_moves = self.board.legal_moves
             for move in legal_moves:
-                move_src_file, move_src_rank, move_dst_file, move_dst_rank = move_uci_to_file_rank(move)
+                move_src_file = chess.square_file(move.from_square)
+                move_src_rank = chess.square_rank(move.from_square)
+                move_dst_file = chess.square_file(move.to_square)
+                move_dst_rank = chess.square_rank(move.to_square)
                 # the move originates from the current square
                 if move_src_file == src_file and move_src_rank == src_rank:
                     self.legal_dsts.append((move_dst_file, move_dst_rank))
@@ -565,7 +573,7 @@ init python:
             5. 
             """
             self.play_move_audio(move)
-            self.push_move(move)
+            self.board.push(move)
             self.add_highlight_move(move)
             # for redrawing
             self.history.append(move)
@@ -573,6 +581,7 @@ init python:
             self.legal_dsts = []
             renpy.redraw(self, 0)
 
+            self.whose_turn = not self.whose_turn # get the oppsite color
             self.check_game_status()
             self.show_promotion_ui = False
             self.promotion = None
@@ -588,12 +597,12 @@ init python:
                 return
             renpy.sound.play(AUDIO_MOVE)
             if self.uses_stockfish: # PvC, undo two moves
-                self.pop_move()
-                self.pop_move()
+                self.board.pop()
+                self.board.pop()
                 self.history.pop()
                 self.history.pop()
             else: # PvP, undo one move
-                self.pop_move()
+                self.board.pop()
                 self.history.pop()
             # for redrawing
             self.src_coord = None
@@ -607,59 +616,23 @@ init python:
 
         # END
 
-        # helper functions for communicating with the subprocess
-        def get_piece_at(self, file_idx, rank_idx):
-            """
-            return the symbol P, N, B, R, Q or K for white pieces or the lower-case variants for the black pieces
-            """
-            self.chess_subprocess.stdin.write('#'.join(['piece_at', str(file_idx), str(rank_idx), '\n']))
-            piece = self.chess_subprocess.stdout.readline().strip()
-            return piece if piece != 'None' else None
-
-        def get_legal_moves(self):
-            """
-            return a list of legal moves
-            """
-            self.chess_subprocess.stdin.write('legal_moves\n')
-            legal_moves = self.chess_subprocess.stdout.readline().strip().split('#')
-            return legal_moves
-
-        def push_move(self, move):
-            # update board in the subprocess
-            self.chess_subprocess.stdin.write('#'.join(['push_move', move, '\n']))
-            # update whose_turn upon a valid move
-            self.whose_turn = eval(self.chess_subprocess.stdout.readline().strip())
-
-        def pop_move(self):
-            """
-            inverse of push_move, undo the last move
-            """
-            self.chess_subprocess.stdin.write('pop_move\n')
-            # update whose_turn upon undoing
-            self.whose_turn = eval(self.chess_subprocess.stdout.readline().strip())
-
-        # XXX: this function is actually not used
-        def kill_chess_subprocess_stockfish(self):
-            # kill the stockfish subprocess by calling stockfish.quit()
-            self.chess_subprocess.stdin.write('quit\n')
-
     # helper functions
-    def coord_to_square(coord, bottom_color=WHITE):
+    def coord_to_square(coord, bottom_color=chess.WHITE):
         """
         bottom_color: if chess.BLACK, flip the coordinate calculation
         """
         x, y = coord
-        if bottom_color == WHITE:
-            file_idx = x / LOC_LEN
-            rank_idx = INDEX_MAX - (y / LOC_LEN)
+        if bottom_color == chess.WHITE:
+            file_idx = x // LOC_LEN
+            rank_idx = INDEX_MAX - (y // LOC_LEN)
         else: # black on bottom_color
-            file_idx = INDEX_MAX - x / LOC_LEN
-            rank_idx = y / LOC_LEN
-        return file_idx, rank_idx
+            file_idx = INDEX_MAX - x // LOC_LEN
+            rank_idx = y // LOC_LEN
+        return int(file_idx), int(rank_idx)
 
-    def indices_to_coord(file_idx, rank_idx, bottom_color=WHITE):
+    def indices_to_coord(file_idx, rank_idx, bottom_color=chess.WHITE):
         assert INDEX_MIN <= file_idx <= INDEX_MAX and INDEX_MIN <= file_idx <= INDEX_MAX
-        if bottom_color == WHITE:
+        if bottom_color == chess.WHITE:
             x = LOC_LEN * file_idx
             y = LOC_LEN * (INDEX_MAX - rank_idx)
         else: # black on bottom_color
@@ -671,8 +644,8 @@ init python:
         """
         for drawing, computes cursor coord rounded to the upperleft coord of the current loc
         """
-        x_round = x / LOC_LEN * LOC_LEN
-        y_round = y / LOC_LEN * LOC_LEN
+        x_round = x // LOC_LEN * LOC_LEN
+        y_round = y // LOC_LEN * LOC_LEN
         return (x_round, y_round)
 
     def square_to_file_rank(square):
@@ -684,20 +657,3 @@ init python:
         file_idx = ord(square[0]) - ord('a')
         rank_idx = int(square[1]) - 1
         return file_idx, rank_idx
-
-    def move_uci_to_file_rank(move):
-        """
-        move uci looks like 'a7a8' or 'a7a8q'
-        """
-        src = move[:2]
-        dst = move[2:]
-        move_src_file, move_src_rank = square_to_file_rank(src)
-        move_dst_file, move_dst_rank = square_to_file_rank(dst)
-        return move_src_file, move_src_rank, move_dst_file, move_dst_rank
-
-    def construct_move_uci(src_file_idx, src_rank_idx, dst_file_idx, dst_rank_idx, promotion=None):
-        move = FILE_LETTERS[src_file_idx] + str(src_rank_idx + 1)
-        move += FILE_LETTERS[dst_file_idx] + str(dst_rank_idx + 1)
-        if promotion:
-            move += promotion
-        return move
