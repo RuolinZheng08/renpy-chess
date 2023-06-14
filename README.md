@@ -7,7 +7,7 @@
 This is a chess GUI built with the [Ren'Py](http://renpy.org/) Visual Novel Engine, [python-chess](https://github.com/niklasf/python-chess), and [Stockfish](https://stockfishchess.org/) (for chess AI). You can use it as a standalone playable or integrate it as a minigame into a Ren'Py visual novel project. Read the [guide for integration](https://github.com/RuolinZheng08/renpy-chess#guide-for-integrating-into-a-renpy-project) below.
 
 ### Compatibility
-This chess engine supports **Ren'Py SDK >= 7.4.0**. It is not backward compatible with **Ren'Py SDK <= 7.3.5** due to reasons described in [this GitHub issue](https://github.com/RuolinZheng08/renpy-chess/issues/14). See the `renpy-7.3.5` branch for [an old version that is compatible with Ren'Py SDK 7.3.5](https://github.com/RuolinZheng08/renpy-chess/tree/renpy-7.3.5).
+This chess engine supports **Ren'Py 8**. It is not backward compatible with **Ren'Py 7**. See the other branches (ex. `renpy-7.4`, `renpy-7.3.5` for older Ren'Py versions)
 
 ### Gameplay Example: Fool's Mate
 <img src="https://github.com/RuolinZheng08/renpy-chess/blob/master/gif-demo/foolsmate.gif" alt="Gameplay Example" width=600>
