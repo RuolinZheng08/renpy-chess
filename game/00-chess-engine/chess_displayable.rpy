@@ -213,7 +213,6 @@ init python:
     
     # stockfish engine is OS-dependent
     stockfish_bin = None
-    STARTUPINFO = None
     if renpy.android:
         stockfish_bin = 'stockfish-10-armv7' # 32 bit
     elif renpy.ios:
@@ -224,8 +223,6 @@ init python:
         stockfish_bin = 'stockfish-11-64'
     elif renpy.windows:
         stockfish_bin = 'stockfish_20011801_x64.exe'
-        STARTUPINFO = subprocess.STARTUPINFO()
-        STARTUPINFO.dwFlags = subprocess.STARTF_USESHOWWINDOW
     else:
         raise Exception('No stockfish binary found for your system')
 
