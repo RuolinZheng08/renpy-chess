@@ -210,6 +210,7 @@ init python:
 
     import chess
     import chess.engine
+    import subprocess
     
     # stockfish engine is OS-dependent
     stockfish_bin = None
