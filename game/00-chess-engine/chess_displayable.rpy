@@ -68,10 +68,8 @@ define FIFTYMOVES = 3
 define DRAW = 4
 define CHECKMATE = 5 # chess.WHITE is True i.e. 1 and chess.BLACK is False i.e. 0
 define STALEMATE = 6
-
 # END ENUM
-# NOTE: must init the engine outside renpy's displayable init
-default STOCKFISH_ENGINE = None
+
 # END DEF
 
 # BEGIN STYLE
@@ -238,10 +236,9 @@ init python:
     STOCKFISH = os.path.join(stockfish_dir, stockfish_bin)
 
     def quit_stockfish():
-        global STOCKFISH_ENGINE
-        if STOCKFISH_ENGINE is not None:
-            STOCKFISH_ENGINE.quit()
-            STOCKFISH_ENGINE = None
+        if global_objects['STOCKFISH_ENGINE'] is not None:
+            global_objects['STOCKFISH_ENGINE'].quit()
+            global_objects['STOCKFISH_ENGINE'] = None
 
     # kill stockfish engine upon quitting the game
     config.quit_action = Confirm('Are you sure you want to quit?',
@@ -297,7 +294,7 @@ init python:
                 self.bottom_color = self.player_color # player color on the bottom
                 self.uses_stockfish = True
 
-                self.engine = STOCKFISH_ENGINE
+                self.engine = global_objects['STOCKFISH_ENGINE']
                 self.engine_limit = chess.engine.Limit(depth=depth)
 
                 # validate stockfish params and depth

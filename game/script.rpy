@@ -10,6 +10,8 @@ define e = Character("Eileen")
 init python:
     # for importing libraries
     import_dir = os.path.join(renpy.config.gamedir, THIS_PATH, 'python-packages')
+    # to prevent STOCKFISH_ENGINE from getting stored and pickled
+    global_objects = {}
 
 # The game starts here.
 
@@ -20,7 +22,7 @@ label start:
 label chess_game:
     # board notation
     $ fen = STARTING_FEN
-    $ STOCKFISH_ENGINE = chess.engine.SimpleEngine.popen_uci(STOCKFISH, startupinfo=STARTUPINFO)
+    $ global_objects['STOCKFISH_ENGINE'] = chess.engine.SimpleEngine.popen_uci(STOCKFISH, startupinfo=STARTUPINFO)
 
     menu:
         "Please select the game mode."
