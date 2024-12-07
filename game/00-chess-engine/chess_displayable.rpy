@@ -184,13 +184,13 @@ screen chess(fen, player_color, depth):
         vbox xalign 0.9 yalign 0.5 spacing 20:
             null height 40
             textbutton '♜':
-                action SetField(chess_displayable, 'promotion', 'r') style 'promotion_piece'
+                action SetField(chess_displayable, 'promotion', chess.ROOK) style 'promotion_piece'
             textbutton '♝':
-                action SetField(chess_displayable, 'promotion', 'b') style 'promotion_piece'
+                action SetField(chess_displayable, 'promotion', chess.BISHOP) style 'promotion_piece'
             textbutton '♞':
-                action SetField(chess_displayable, 'promotion', 'n') style 'promotion_piece'
+                action SetField(chess_displayable, 'promotion', chess.KNIGHT) style 'promotion_piece'
             textbutton '♛':
-                action SetField(chess_displayable, 'promotion', 'q') style 'promotion_piece'
+                action SetField(chess_displayable, 'promotion', chess.QUEEN) style 'promotion_piece'
 
 # END SCREEN
 
@@ -445,7 +445,7 @@ init python:
                         )
 
                     # needs promotion but the player hasn't select a piece to promote to
-                    if self.show_promotion_ui and move.promotion:
+                    if self.show_promotion_ui and not move.promotion:
                         renpy.notify('Please select a piece type to promote to')
 
                     if move in self.board.legal_moves:
