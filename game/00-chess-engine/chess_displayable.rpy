@@ -599,9 +599,11 @@ init python:
                 self.board.pop()
                 self.history.pop()
                 self.history.pop()
+                # whose turn stays the same so we don't need to update that
             else: # PvP, undo one move
                 self.board.pop()
                 self.history.pop()
+                self.whose_turn = not self.whose_turn # get the oppsite color
             # for redrawing
             self.src_coord = None
             self.legal_dsts = []
