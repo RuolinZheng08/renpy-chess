@@ -208,7 +208,7 @@ init python:
 
     import chess
     import chess.engine
-    import subprocess
+    import subprocess # necessary for telling Windows stockfish to not open a popup window
     
     # stockfish engine is OS-dependent
     stockfish_bin = None
