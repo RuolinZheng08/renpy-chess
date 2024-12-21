@@ -61,12 +61,9 @@ The chess game is full-screen when the screen resolution is 1280x720, but is cus
     - images                        # chess board and piece images
     - python-packages               # Python libraries
     - chess_displayable.rpy         # core GUI class
-    - chess_subprocess.py           # core logic class
 ```
 
-The core GUI class is a [Ren'Py Creator-Defined Displayable](https://www.renpy.org/doc/html/udd.html) named `ChessDisplayable` inside `00-chess-engine/chess_displayable.rpy`. You can customize anything stylistic in `chess_displayable.rpy`, as described below in more details.
-
-`00-chess-engine/chess_subprocess.py` is the underlying chess engine. Creating an instance of `ChessDisplayable` will launch `chess_subprocess.py` as a subprocess. You can make logical changes in `chess_subprocess.py` for your specific use cases if you are comfortable with subprocess programming.
+The core GUI class is a [Ren'Py Creator-Defined Displayable](https://www.renpy.org/doc/html/udd.html) named `ChessDisplayable` inside `00-chess-engine/chess_displayable.rpy`.
 
 In your Ren'Py script, for example, `script.rpy`, pass the following configuration variables for the chess engine to the chess screen defined as `screen chess(fen, player_color, movetime, depth)`:
 
