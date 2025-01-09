@@ -46,11 +46,9 @@ Click on a piece and all of its available moves will be highlighted. Click on an
 
 ## Guide for Integrating into a Ren'Py Project
 
-Note: This project is built on Ren'Py 7 and doesn't yet support Ren'Py 8 (which uses Python 3). If your game requires Ren'Py 8, please reach out to me.
+All files essential to the chess engine are in `game/00-chess-engine`. Therefore, you only need to copy the entire `00-chess-engine` into your Ren'Py `game` directory.
 
-All of the files essential to the chess engine are in `game/00-chess-engine`. Therefore, you only need to copy the entire `00-chess-engine` into your Ren'Py `game` directory.
-
-The chess game is full-screen when the screen resolution is 1280x720, but is customizable to fit any screen sizes, as described in subsequent sections.
+The chess game is full-screen when the screen resolution is 1280x720, but it is customizable to fit any screen size, as described in subsequent sections.
 
 ### Structure of `00-chess-engine`
 
@@ -72,38 +70,7 @@ In your Ren'Py script, for example, `script.rpy`, pass the following configurati
 - `movetime`: `None` for PvP. For PvC, between `0` and `MAX_MOVETIME = 3000` milliseconds.
 - `depth`: `None` for PvP. For PvC, between `0` and `MAX_DEPTH = 20`.
 
-To call the chess displayable screen: (Also see the `game/script.rpy` file in this repo.)
-
-```renpy
-define e = Character("Eileen")
-
-window hide
-$ quick_menu = False
-# avoid rolling back and losing chess game state
-$ renpy.block_rollback()
-
-# launches an easy-level PvC where player plays as white
-$ fen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
-call screen chess(fen=fen, player_color=WHITE, movetime=2000, depth=2)
-
-# avoid rolling back and entering the chess game again
-$ renpy.block_rollback()
-# restore rollback from this point on
-$ renpy.checkpoint()
-$ quick_menu = True
-window show
-
-if _return == DRAW:
-    e "The game ended in a draw."
-else: # RESIGN or CHECKMATE
-    $ winner = "White" if _return == WHITE else "Black"
-    e "The winner is [winner]."
-    if player_color is not None: # PvC
-        if _return == player_color:
-            e "Congratulations, player!"
-        else:
-            e "Better luck next time, player."
-```
+**See `game/script.rpy` for an example that calls the chess displayable screen.**
 
 ### Customizations for Different Difficulty Levels
 
@@ -145,12 +112,6 @@ define COLOR_LEGAL_DST = '#afeeeeaa' # PaleTurquoise
 define COLOR_PREV_MOVE = '#6a5acdaa' # SlateBlue
 define COLOR_WHITE = '#fff'
 ```
-
-## Continuous Development
-The project is under active maintenance and you can view its development status on this public [Trello board](https://trello.com/b/ip9YLSPa/renpy-chess). Please feel free to submit a GitHub issue for bugs and feature requests. I have helped to integrate this chess engine into an in-development kinetic novel, [The Wind at Dawn](https://madeleine-chai.itch.io/the-wind-at-dawn).
-
-## Contribution
-Please feel free to submit GitHub issues and PRs. You are also more than welcome to join the Trello board if you are interested.
 
 ## Asset Credits
 
