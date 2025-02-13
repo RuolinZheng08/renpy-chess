@@ -236,7 +236,7 @@ init python:
     STOCKFISH = os.path.join(stockfish_dir, stockfish_bin)
 
     def quit_stockfish():
-        if global_objects['STOCKFISH_ENGINE'] is not None:
+        if 'STOCKFISH_ENGINE' in global_objects and global_objects['STOCKFISH_ENGINE'] is not None:
             global_objects['STOCKFISH_ENGINE'].quit()
             global_objects['STOCKFISH_ENGINE'] = None
 
